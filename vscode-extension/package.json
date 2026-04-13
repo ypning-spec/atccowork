@@ -1,0 +1,72 @@
+{
+  "name": "acms-cowork",
+  "displayName": "ACMS Cowork",
+  "description": "AutoCharge ACMS 问题协作助手 — 在 VS Code 中查看 Issue 信息并与 AI 对话",
+  "version": "0.7.12",
+  "publisher": "autocharge",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:acms.chat"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "acms.open",
+        "title": "ACMS: 打开聊天面板"
+      },
+      {
+        "command": "acms.setIssue",
+        "title": "ACMS: 关联 Issue"
+      },
+      {
+        "command": "acms.recordChange",
+        "title": "ACMS: 记录代码变更"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "acms-sidebar",
+          "title": "ACMS Cowork",
+          "icon": "$(comment-discussion)"
+        }
+      ]
+    },
+    "views": {
+      "acms-sidebar": [
+        {
+          "type": "webview",
+          "id": "acms.chat",
+          "name": "ACMS"
+        }
+      ]
+    },
+    "menus": {},
+    "configuration": {
+      "title": "ACMS Cowork",
+      "properties": {
+        "acms.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "ACMS 服务器地址"
+        },
+        "acms.token": {
+          "type": "string",
+          "default": "",
+          "description": "JWT Token（从 ACMS Web → 右上角「复制 Token」获取）"
+        },
+        "acms.pathPrefixStrip": {
+          "type": "string",
+          "default": "",
+          "description": "文件跳转时剥离的路径前缀。例如 AI 给出 \"rcu/arm_control/foo.cpp\"，本地 clone 在工作区根目录，填 \"rcu/\" 可自动剥离前缀直接跳转。留空时自动逐级剥离。"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>AutoCharge Cowork</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0D0F14;--bg2:#0F1219;--bg3:#141820;--bg4:#1A2035;
+  --border:#1E2330;--primary:#4F8EF7;--pglow:rgba(79,142,247,0.18);
+  --success:#00D68F;--warn:#FFB547;--danger:#FF5C5C;
+  --t1:#E8EAED;--t2:#9AA0AC;--t3:#5A6070;--r:10px;
+}
+/* ── warm theme ─────────────────────────────── */
+:root.theme-warm{
+  --bg:#FAF5EE;--bg2:#F3EAE0;--bg3:#EBE0D4;--bg4:#E2D5C6;
+  --border:#D4C5B2;--primary:#B85C2A;--pglow:rgba(184,92,42,0.15);
+  --success:#2E7D52;--warn:#B87220;--danger:#C03030;
+  --t1:#231A14;--t2:#6B5B50;--t3:#9E8878;
+}
+body{height:100vh;overflow:hidden;background:var(--bg);color:var(--t1);
+  font-family:-apple-system,"PingFang SC","Helvetica Neue",sans-serif;
+  font-size:14px;display:flex;flex-direction:column;}
+
+/* ── login overlay ──────────────────────── */
+#login-overlay{position:fixed;inset:0;background:rgba(13,15,20,.96);backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:center;z-index:100;}
+#login-overlay.hidden{display:none;}
+.login-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;
+  padding:48px 56px;text-align:center;max-width:360px;width:100%;}
+.login-logo{width:52px;height:52px;background:var(--primary);border-radius:14px;
+  display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:700;margin:0 auto 20px;}
+.login-title{font-size:22px;font-weight:600;margin-bottom:6px;}
+.login-sub{font-size:13px;color:var(--t3);margin-bottom:32px;}
+.login-btn{width:100%;background:var(--primary);color:#fff;border:none;border-radius:10px;
+  padding:14px;font-size:15px;font-weight:500;cursor:pointer;font-family:inherit;
+  box-shadow:0 0 20px var(--pglow);transition:opacity .15s;}
+.login-btn:hover{opacity:.88;}
+
+/* ── topbar ─────────────────────────────── */
+#topbar{height:52px;background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex-shrink:0;}
+.tb-left{display:flex;align-items:center;gap:10px;}
+.tb-logo{width:28px;height:28px;background:var(--primary);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;}
+.tb-name{font-size:15px;font-weight:600;}
+.tb-proj{font-size:12px;color:var(--t3);padding:3px 8px;border:1px solid var(--border);border-radius:5px;}
+.tb-roles{display:flex;gap:3px;}
+.role-tab{background:transparent;border:none;color:var(--t2);padding:5px 12px;
+  border-radius:6px;font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.role-tab:hover{color:var(--t1);background:rgba(255,255,255,.05);}
+.role-tab.active{background:var(--primary);color:#fff;}
+.tb-right{display:flex;align-items:center;gap:10px;}
+.tb-badge{display:flex;align-items:center;gap:6px;background:rgba(0,214,143,.1);
+  border:1px solid rgba(0,214,143,.2);border-radius:20px;padding:4px 12px;
+  font-size:12px;color:var(--success);white-space:nowrap;}
+.tb-role-badge{font-size:12px;color:var(--t3);padding:3px 10px;
+  background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:12px;}
+.agent-dot{width:10px;height:10px;border-radius:50%;background:var(--success);
+  flex-shrink:0;transition:background .4s;}
+.agent-dot.ok{background:var(--success);box-shadow:0 0 6px var(--success);}
+.agent-dot.err{background:var(--danger);box-shadow:0 0 6px var(--danger);}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+/* ── statusbar ──────────────────────────── */
+#statusbar{height:40px;background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 20px;gap:16px;flex-shrink:0;}
+.sb-ctx{font-size:12px;color:var(--t2);white-space:nowrap;flex-shrink:0;}
+.sb-div{color:var(--border);}
+.sb-steps{display:flex;align-items:center;gap:4px;}
+.step{font-size:12px;color:var(--t3);white-space:nowrap;}
+.step.done{color:var(--success);}
+.step.done::before{content:'✓ ';}
+.step.active{color:var(--primary);font-weight:600;}
+.step-arr{color:var(--t3);font-size:11px;}
+
+/* ── layout ─────────────────────────────── */
+#app-body{flex:1;display:flex;overflow:hidden;}
+#left-panel{width:268px;background:var(--bg2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;}
+
+/* ── dashboard ──────────────────────────── */
+#dashboard{display:none;flex-direction:column;overflow-y:auto;flex:1;padding:14px 12px;}
+#dashboard.show{display:flex;}
+.dash-sec{margin-bottom:18px;}
+.dash-sec-title{font-size:10px;color:var(--t3);text-transform:uppercase;
+  letter-spacing:.8px;font-weight:500;margin-bottom:10px;}
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.mc{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 11px;cursor:pointer;transition:border-color .12s;}
+.mc:hover{border-color:var(--primary);}
+.mc-val{font-size:22px;font-weight:700;line-height:1.2;}
+.mc-val.warn{color:var(--warn);}
+.mc-val.ok{color:var(--success);}
+.mc-val.primary{color:var(--primary);}
+.mc-label{font-size:11px;color:var(--t2);margin-top:3px;}
+.mc-sub{font-size:10px;color:var(--t3);margin-top:2px;}
+
+/* ── issue panel ────────────────────────── */
+#issue-panel{display:none;flex-direction:column;flex:1;overflow:hidden;}
+#issue-panel.show{display:flex;}
+.ip-header{display:flex;align-items:center;justify-content:space-between;padding:14px 14px 10px;}
+.ip-label{font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.8px;font-weight:500;}
+.ip-count{background:var(--primary);color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:600;}
+#issue-list{overflow-y:auto;flex:1;}
+.issue-item{padding:11px 14px;cursor:pointer;border-left:3px solid transparent;transition:all .12s;}
+.issue-item:hover{background:rgba(255,255,255,.03);}
+.issue-item.active{border-left-color:var(--primary);background:rgba(79,142,247,.08);}
+.ii-top{display:flex;align-items:center;gap:7px;margin-bottom:4px;}
+.ii-id{font-size:11px;color:var(--primary);font-weight:600;}
+.ii-tag{font-size:10px;padding:2px 6px;border-radius:4px;}
+.ii-tag.s1{background:rgba(255,181,71,.15);color:var(--warn);}
+.ii-tag.s2{background:rgba(79,142,247,.15);color:var(--primary);}
+.ii-tag.s3{background:rgba(0,214,143,.15);color:var(--success);}
+.ii-tag.s4{background:rgba(90,96,112,.2);color:var(--t2);}
+.ii-title{font-size:13px;color:var(--t1);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ii-meta{font-size:11px;color:var(--t3);}
+
+/* ── chat ───────────────────────────────── */
+#chat-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+#chat-header{height:48px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0;}
+.ch-left{display:flex;align-items:center;gap:10px;}
+#chat-title{font-size:14px;font-weight:500;}
+#chat-sub{font-size:12px;color:var(--t3);}
+.ch-store{font-size:11px;color:var(--t3);font-family:'SF Mono',monospace;}
+#chat-messages{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:18px;}
+.mw{display:flex;max-width:720px;margin:0 auto;width:100%;}
+.mw.ai{align-items:flex-start;gap:10px;}
+.mw.user{justify-content:flex-end;gap:10px;}
+.m-icon{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;
+  justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:2px;}
+.ai .m-icon{background:var(--primary);color:#fff;}
+.user .m-icon{background:#2A3045;color:var(--t2);}
+.m-card{background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--primary);
+  border-radius:0 var(--r) var(--r) var(--r);padding:14px 16px;max-width:92%;}
+.m-bubble{background:var(--primary);color:#fff;
+  border-radius:var(--r) 0 var(--r) var(--r);padding:10px 14px;max-width:72%;}
+.m-sender{font-size:11px;color:var(--primary);font-weight:600;margin-bottom:8px;}
+.m-text{font-size:13px;line-height:1.75;color:var(--t1);}
+.m-text p{margin-bottom:8px;}
+.m-text p:last-child{margin-bottom:0;}
+.m-text strong{color:var(--t1);font-weight:600;}
+.m-text hr{border:none;border-top:1px solid var(--border);margin:10px 0;}
+.m-bubble .m-text{color:#fff;}
+.m-time{font-size:11px;color:var(--t3);margin-top:8px;}
+
+/* ── inline components ──────────────────── */
+.s-card{background:var(--bg4);border:1px solid var(--border);border-radius:8px;padding:10px 13px;margin:10px 0;}
+.s-card-title{font-size:10px;color:var(--t3);font-weight:500;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;}
+.s-row{display:flex;align-items:baseline;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);}
+.s-row:last-child{border-bottom:none;}
+.s-lbl{font-size:11px;color:var(--t3);flex-shrink:0;width:80px;}
+.s-val{font-size:12px;color:var(--t1);flex:1;line-height:1.5;}
+.s-val.ok{color:var(--success);}
+.s-val.dim{color:var(--t3);}
+.s-val.code{font-family:'SF Mono',monospace;color:#61AFEF;}
+.jira-writeback{background:rgba(0,214,143,.06);border:1px solid rgba(0,214,143,.2);
+  border-radius:7px;padding:8px 11px;margin:8px 0;display:flex;gap:8px;align-items:flex-start;}
+.jw-icon{flex-shrink:0;font-size:13px;}
+.jw-body{font-size:12px;color:var(--t2);line-height:1.5;}
+.jw-body strong{color:var(--success);}
+.action-row{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap;}
+.act-btn{background:var(--bg4);border:1px solid var(--border);color:var(--t1);
+  border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;
+  transition:all .12s;font-family:inherit;}
+.act-btn:hover{border-color:var(--primary);color:var(--primary);}
+.act-btn.primary{background:var(--primary);color:#fff;border-color:var(--primary);}
+.act-btn.primary:hover{opacity:.85;}
+.act-btn:disabled{opacity:.4;cursor:not-allowed;}
+
+/* ── admin panel ────────────────────────── */
+#admin-panel{flex:1;display:none;flex-direction:column;overflow:hidden;background:var(--bg);}
+#admin-panel.show{display:flex;}
+.ap-header{height:48px;border-bottom:1px solid var(--border);display:flex;align-items:center;
+  padding:0 32px;flex-shrink:0;}
+.ap-title{font-size:14px;font-weight:500;}
+.ap-body{flex:1;overflow-y:auto;padding:28px 32px;}
+.ap-section{margin-bottom:28px;}
+.ap-sec-title{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;
+  font-weight:500;margin-bottom:14px;}
+.ap-form{display:flex;gap:8px;margin-bottom:22px;flex-wrap:wrap;align-items:flex-end;}
+.ap-form-group{display:flex;flex-direction:column;gap:5px;}
+.ap-form-label{font-size:11px;color:var(--t3);}
+.ap-input{background:var(--bg3);border:1px solid var(--border);color:var(--t1);
+  border-radius:6px;padding:8px 12px;font-size:13px;outline:none;font-family:inherit;
+  transition:border-color .15s;min-width:160px;}
+.ap-input:focus{border-color:var(--primary);}
+.ap-select{background:var(--bg3);border:1px solid var(--border);color:var(--t1);
+  border-radius:6px;padding:8px 10px;font-size:13px;outline:none;font-family:inherit;
+  cursor:pointer;}
+.ap-btn{background:var(--primary);color:#fff;border:none;border-radius:6px;
+  padding:8px 18px;font-size:13px;cursor:pointer;font-family:inherit;transition:opacity .15s;
+  white-space:nowrap;align-self:flex-end;}
+.ap-btn:hover{opacity:.85;}
+.ap-btn.danger{background:transparent;border:1px solid var(--danger);color:var(--danger);}
+.ap-btn.danger:hover{background:rgba(255,92,92,.1);}
+.ap-table{width:100%;border-collapse:collapse;font-size:13px;}
+.ap-table th{text-align:left;font-size:11px;color:var(--t3);text-transform:uppercase;
+  letter-spacing:.6px;padding:8px 12px;border-bottom:1px solid var(--border);}
+.ap-table td{padding:10px 12px;border-bottom:1px solid rgba(30,35,48,.6);vertical-align:middle;}
+.ap-table tr:hover td{background:rgba(255,255,255,.02);}
+.ap-role-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;}
+.ap-role-badge.admin{background:rgba(255,92,92,.15);color:var(--danger);}
+.ap-role-badge.pm{background:rgba(79,142,247,.15);color:var(--primary);}
+.ap-role-badge.dev{background:rgba(255,181,71,.15);color:var(--warn);}
+.ap-role-badge.verify{background:rgba(0,214,143,.15);color:var(--success);}
+.ap-role-badge.readonly{background:rgba(90,96,112,.2);color:var(--t2);}
+.ap-empty{padding:32px;text-align:center;color:var(--t3);font-size:13px;}
+.ap-hint{font-size:12px;color:var(--t3);margin-top:10px;line-height:1.6;}
+.ap-edit-select{background:var(--bg3);border:1px solid var(--primary);color:var(--t1);
+  border-radius:4px;padding:3px 6px;font-size:12px;outline:none;font-family:inherit;cursor:pointer;}
+
+/* ── input ──────────────────────────────── */
+#chat-input-area{border-top:1px solid var(--border);padding:14px 24px;flex-shrink:0;}
+.ii{max-width:720px;margin:0 auto;}
+.ia{display:flex;gap:7px;margin-bottom:10px;flex-wrap:wrap;}
+.ia-btn{background:transparent;border:1px solid var(--border);color:var(--t2);
+  border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;transition:all .12s;}
+.ia-btn:hover{border-color:var(--primary);color:var(--primary);}
+.ia-btn.ia-confirm{border-color:var(--success);color:var(--success);font-weight:500;}
+.ia-btn.ia-confirm:hover{background:rgba(0,214,143,.1);}
+.ia-btn.ia-warn{border-color:var(--warn);color:var(--warn);}
+.ia-btn.ia-warn:hover{background:rgba(255,181,71,.1);}
+.ia-btn.ia-vscode{border-color:#007ACC;color:#007ACC;text-decoration:none;display:inline-flex;align-items:center;}
+.ia-btn.ia-vscode:hover{background:rgba(0,122,204,.1);}
+/* stage dividers in chat */
+.stage-divider{font-size:11px;color:var(--t3);display:flex;align-items:center;gap:8px;margin:10px 4px;}
+.stage-divider::before,.stage-divider::after{content:'';flex:1;height:1px;background:var(--border);}
+/* compact dashboard (驾驶舱 + issue list together) */
+#dashboard.compact{flex:0 0 auto;overflow:visible;}
+/* 问题提报草稿卡片 */
+#report-draft:not(:empty){border-top:1px solid var(--border);padding:14px 24px;}
+.rd-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+.rd-title{font-size:12px;font-weight:600;color:var(--t2);margin-bottom:10px;letter-spacing:.5px;}
+.rd-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;}
+.rd-row{display:flex;flex-direction:column;gap:2px;}
+.rd-label{font-size:11px;color:var(--t3);}
+.rd-val{font-size:13px;color:var(--t1);}
+.rd-full{grid-column:1/-1;}
+.rd-actions{display:flex;gap:8px;margin-top:12px;}
+.rd-confirm{background:var(--primary);color:#fff;border:none;border-radius:6px;padding:7px 16px;font-size:13px;cursor:pointer;}
+.rd-confirm:hover{opacity:.85;}
+.rd-cancel{background:transparent;border:1px solid var(--border);color:var(--t2);border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer;}
+.rd-cancel:hover{border-color:var(--danger);color:var(--danger);}
+.ir{display:flex;gap:10px;}
+#msg-input{flex:1;background:var(--bg3);border:1px solid var(--border);
+  border-radius:8px;color:var(--t1);font-size:14px;padding:10px 14px;
+  outline:none;font-family:inherit;transition:border-color .15s;}
+#msg-input:focus{border-color:var(--primary);}
+#msg-input::placeholder{color:var(--t3);}
+#send-btn{background:var(--primary);color:#fff;border:none;border-radius:8px;
+  padding:10px 20px;font-size:14px;cursor:pointer;font-family:inherit;
+  box-shadow:0 0 14px var(--pglow);transition:opacity .15s;white-space:nowrap;}
+#send-btn:hover{opacity:.88;}
+#send-btn:disabled{opacity:.4;cursor:not-allowed;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+</head>
+<body>
+
+<!-- 登录覆盖层 -->
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="login-logo">B</div>
+    <div class="login-title">AutoCharge Cowork</div>
+    <div class="login-sub">ACMS 项目 AI 协作平台</div>
+    <button class="login-btn" onclick="doLogin()">使用飞书登录</button>
+  </div>
+</div>
+
+<div id="topbar">
+  <div class="tb-left">
+    <div class="tb-logo">B</div>
+    <span class="tb-name">AutoCharge Cowork</span>
+    <span class="tb-proj">ACMS</span>
+  </div>
+  <div class="tb-roles" id="tb-roles"></div>
+  <div class="tb-right">
+    <div id="agent-status" class="agent-dot ok" title="AI Agent 状态正常"></div>
+    <button id="theme-btn" onclick="toggleTheme()" style="background:transparent;
+      border:1px solid var(--border);color:var(--t2);border-radius:6px;padding:3px 10px;
+      font-size:12px;cursor:pointer;font-family:inherit;" title="切换主题">☀️ 暖色</button>
+    <button id="sync-btn" onclick="syncFromJira()" style="display:none;background:transparent;
+      border:1px solid var(--border);color:var(--t2);border-radius:6px;padding:3px 10px;
+      font-size:12px;cursor:pointer;font-family:inherit;" title="从JIRA拉取最新 issue 列表">⟳ 同步JIRA</button>
+    <button id="copy-token-btn" onclick="copyToken()" style="background:transparent;
+      border:1px solid var(--border);color:var(--t2);border-radius:6px;padding:3px 10px;
+      font-size:12px;cursor:pointer;font-family:inherit;" title="复制 Token 用于 VS Code 插件配置">📋 复制 Token</button>
+    <div class="tb-role-badge" id="tb-user-role">-</div>
+  </div>
+</div>
+<div id="statusbar">
+  <span class="sb-ctx" id="sb-ctx">ACMS</span>
+  <span class="sb-div">|</span>
+  <div class="sb-steps" id="sb-steps"></div>
+</div>
+<div id="app-body">
+  <div id="left-panel">
+    <div id="dashboard"></div>
+    <div id="issue-panel">
+      <div class="ip-header"><span class="ip-label">待处理</span><span class="ip-count" id="ip-count">0</span></div>
+      <div id="issue-list"></div>
+    </div>
+  </div>
+  <div id="chat-wrap">
+    <div id="chat-header">
+      <div class="ch-left">
+        <span id="chat-title">-</span>
+        <span id="chat-sub"></span>
+      </div>
+    </div>
+    <div id="chat-messages"></div>
+    <div id="report-draft"></div>
+    <div id="chat-input-area">
+      <div class="ii">
+        <div class="ia" id="input-actions"></div>
+        <div class="ir">
+          <input id="msg-input" type="text" placeholder="发送消息…"/>
+          <button id="send-btn" onclick="handleSend()">发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 管理员面板 -->
+  <div id="admin-panel">
+    <div class="ap-header">
+      <span class="ap-title">成员预登记管理</span>
+    </div>
+    <div class="ap-body">
+      <div class="ap-section">
+        <div class="ap-sec-title">新增 / 覆盖预登记</div>
+        <div class="ap-form">
+          <div class="ap-form-group">
+            <span class="ap-form-label">飞书名字</span>
+            <input id="ap-name" class="ap-input" placeholder="与飞书显示名完全一致"/>
+          </div>
+          <div class="ap-form-group">
+            <span class="ap-form-label">角色</span>
+            <select id="ap-role" class="ap-select">
+              <option value="admin">管理员</option>
+              <option value="pm" selected>项目经理</option>
+              <option value="dev">研发</option>
+              <option value="verify">验证</option>
+              <option value="readonly">只读</option>
+            </select>
+          </div>
+          <div class="ap-form-group">
+            <span class="ap-form-label">备注（可选）</span>
+            <input id="ap-note" class="ap-input" placeholder="如：前端负责人" style="min-width:140px"/>
+          </div>
+          <button class="ap-btn" onclick="addPreset()">添加</button>
+        </div>
+        <p class="ap-hint">
+          · 飞书名字须与飞书客户端显示名完全一致（区分大小写）。<br>
+          · 用户下次登录时角色自动同步；已在线的用户需重新登录生效。<br>
+          · 若该飞书名已存在记录，将覆盖其角色和备注。
+        </p>
+      </div>
+      <div class="ap-section">
+        <div class="ap-sec-title">预登记列表</div>
+        <div id="ap-table-wrap"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '';  // same origin
+let jwt = null;
+let me = null;   // {id, feishu_name, role, ...}
+let curIssueKey = null;
+let curIssueData = null;
+let sendLocked = false;
+let _pollTimer = null;
+const _tabLastIssue = {};  // per-tab last open issue key
+
+function _stopPolling(){ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer=null; } }
+
+function _startPolling(key, checkFn, intervalMs=5000){
+  _stopPolling();
+  _pollTimer = setInterval(async ()=>{
+    if(curIssueKey !== key){ _stopPolling(); return; }
+    try{ await checkFn(); } catch(e){}
+  }, intervalMs);
+}
+
+// ── utilities ────────────────────────────────────────────
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ── copy token ───────────────────────────────────────────
+function copyToken(){
+  const btn = document.getElementById('copy-token-btn');
+  if(!jwt){
+    const orig = btn.textContent;
+    btn.textContent = '未登录';
+    setTimeout(()=>{ btn.textContent = orig; }, 1500);
+    return;
+  }
+  function flash(){
+    const orig = btn.textContent;
+    btn.textContent = '✓ 已复制';
+    setTimeout(()=>{ btn.textContent = orig; }, 1500);
+  }
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(jwt).then(flash).catch(()=>fallbackCopy(jwt, flash));
+  } else {
+    fallbackCopy(jwt, flash);
+  }
+}
+function fallbackCopy(text, cb){
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;opacity:0';
+  document.body.appendChild(ta);
+  ta.focus(); ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  cb();
+}
+
+// ── theme ────────────────────────────────────────────────
+function toggleTheme(){
+  const root = document.documentElement;
+  const btn = document.getElementById('theme-btn');
+  if(root.classList.contains('theme-warm')){
+    root.classList.remove('theme-warm');
+    btn.textContent = '☀️ 暖色';
+    localStorage.setItem('theme','dark');
+  } else {
+    root.classList.add('theme-warm');
+    btn.textContent = '🌙 暗黑';
+    localStorage.setItem('theme','warm');
+  }
+}
+
+// ── agent status ──────────────────────────────────────────
+let _agentErrTimeout = null;
+function setAgentStatus(ok){
+  const dot = document.getElementById('agent-status');
+  if(!dot) return;
+  if(ok){
+    dot.classList.remove('err'); dot.classList.add('ok');
+    dot.title = 'AI Agent 状态正常';
+  } else {
+    dot.classList.remove('ok'); dot.classList.add('err');
+    dot.title = 'AI Agent 异常，请检查服务';
+    // Auto-recover indicator after 8s
+    clearTimeout(_agentErrTimeout);
+    _agentErrTimeout = setTimeout(()=>setAgentStatus(true), 8000);
+  }
+}
+// apply saved theme immediately
+(function(){
+  if(localStorage.getItem('theme')==='warm'){
+    document.documentElement.classList.add('theme-warm');
+    const btn = document.getElementById('theme-btn');
+    if(btn) btn.textContent = '🌙 暗黑';
+  }
+})();
+// Registry for pending ECharts configs (avoids JSON-in-HTML-attribute escaping issues)
+const _ecRegistry = {};
+let _ecSeq = 0;
+
+function md(text){
+  // Extract echarts blocks before HTML escaping
+  text = text.replace(/```echarts\n([\s\S]*?)```/g, (_, json) => {
+    try{
+      const opts = JSON.parse(json.trim());
+      const id = 'ec-'+(++_ecSeq);
+      _ecRegistry[id] = opts;
+      return `__ECHART_${id}__`;
+    } catch(e){
+      return '（图表 JSON 解析失败）';
+    }
+  });
+  // minimal markdown renderer
+  let result = esc(text)
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/`([^`]+)`/g,'<code style="font-family:SF Mono,monospace;color:#61AFEF">$1</code>')
+    .replace(/^---$/gm,'<hr>')
+    .replace(/\n/g,'<br>');
+  // Restore echarts placeholders as chart containers
+  result = result.replace(/__ECHART_(ec-\d+)__/g, (_, id) =>
+    `<div id="${id}" class="ec-chart" style="width:100%;height:280px;margin:10px 0;border-radius:8px;overflow:hidden"></div>`
+  );
+  return result;
+}
+
+function renderCharts(){
+  document.querySelectorAll('.ec-chart').forEach(el=>{
+    const opts = _ecRegistry[el.id];
+    if(!opts || el.dataset.rendered) return;
+    el.dataset.rendered = '1';
+    // Choose theme based on current color scheme
+    const isDark = !document.documentElement.classList.contains('theme-warm');
+    const chart = echarts.init(el, isDark ? 'dark' : null, {renderer:'canvas'});
+    chart.setOption(opts);
+    // Responsive resize
+    window.addEventListener('resize', ()=>chart.resize());
+  });
+}
+
+function relTime(ts){
+  const d = new Date(ts), now = new Date();
+  const diff = (now-d)/1000;
+  if(diff<60) return '刚刚';
+  if(diff<3600) return Math.floor(diff/60)+'分钟前';
+  if(diff<86400) return Math.floor(diff/3600)+'小时前';
+  return Math.floor(diff/86400)+'天前';
+}
+
+async function apiFetch(url, opts={}){
+  const headers = {'Content-Type':'application/json', ...(opts.headers||{})};
+  if(jwt) headers['Authorization'] = 'Bearer '+jwt;
+  const res = await fetch(API+url, {...opts, headers});
+  if(res.status===401){ clearAuth(); showLogin(); throw new Error('Unauthorized'); }
+  return res;
+}
+
+// ── auth ─────────────────────────────────────────────────
+function clearAuth(){ jwt=null; me=null; localStorage.removeItem('jwt'); localStorage.removeItem('lastIssueKey'); }
+
+function doLogin(){
+  window.location.href = API+'/auth/login';
+}
+
+async function init(){
+  // Check ?jwt= in URL first
+  const params = new URLSearchParams(location.search);
+  const urlJwt = params.get('jwt');
+  if(urlJwt){
+    jwt = urlJwt;
+    localStorage.setItem('jwt', jwt);
+    history.replaceState({}, '', '/');
+  } else {
+    jwt = localStorage.getItem('jwt');
+  }
+
+  if(!jwt){ showLogin(); return; }
+
+  // Validate token
+  try{
+    const res = await apiFetch('/auth/me');
+    if(!res.ok){ clearAuth(); showLogin(); return; }
+    me = await res.json();
+    showApp();
+  } catch(e){ clearAuth(); showLogin(); }
+}
+
+function showLogin(){
+  document.getElementById('login-overlay').classList.remove('hidden');
+}
+
+function showApp(){
+  document.getElementById('login-overlay').classList.add('hidden');
+  buildTabs();
+  updateUserBadge();
+  if(me.role === 'admin') document.getElementById('sync-btn').style.display = '';
+  // Default view
+  const defaultTab = getDefaultTab();
+  switchTab(defaultTab);
+  // Restore last open issue
+  const lastKey = localStorage.getItem('lastIssueKey');
+  if(lastKey) setTimeout(()=> loadIssue(lastKey, curTab === 'global'), 200);
+}
+
+// ── role + tabs ──────────────────────────────────────────
+const ROLE_LABEL = {admin:'管理员', pm:'项目经理', dev:'研发', verify:'验证', readonly:'只读'};
+
+const TABS_BY_ROLE = {
+  admin:    [{key:'global',label:'驾驶舱'},{key:'问题分析中',label:'分析中'},{key:'问题解决中',label:'解决中'},{key:'效果验证',label:'效果验证'},{key:'report',label:'问题提报'},{key:'admin',label:'成员管理'}],
+  pm:       [{key:'global',label:'驾驶舱'},{key:'report',label:'问题提报'}],
+  dev:      [{key:'global',label:'驾驶舱'},{key:'问题分析中',label:'分析中'},{key:'问题解决中',label:'解决中'},{key:'report',label:'问题提报'}],
+  verify:   [{key:'global',label:'驾驶舱'},{key:'效果验证',label:'效果验证'},{key:'report',label:'问题提报'}],
+  readonly: [{key:'global',label:'驾驶舱'},{key:'report',label:'问题提报'}],
+};
+
+function getDefaultTab(){
+  const tabs = TABS_BY_ROLE[me.role] || [{key:'global',label:'驾驶舱'}];
+  return tabs[0].key;
+}
+
+function buildTabs(){
+  const tabs = TABS_BY_ROLE[me.role] || [];
+  const container = document.getElementById('tb-roles');
+  container.innerHTML = tabs.map(t=>
+    `<button class="role-tab" data-key="${t.key}" onclick="switchTab('${t.key}')">${esc(t.label)}</button>`
+  ).join('');
+  if(tabs[0]) container.querySelector(`[data-key="${tabs[0].key}"]`)?.classList.add('active');
+}
+
+function updateUserBadge(){
+  document.getElementById('tb-user-role').textContent = ROLE_LABEL[me.role] || me.role;
+}
+
+let curTab = null;
+let curReportSession = null;  // active report session id
+function switchTab(tabKey){
+  // Save current issue for the tab we're leaving
+  if(curTab && curIssueKey) _tabLastIssue[curTab] = curIssueKey;
+
+  curTab = tabKey;
+  curIssueKey = null; curIssueData = null;
+  if(tabKey !== 'report') curReportSession = null;
+  _stopPolling();
+  document.querySelectorAll('.role-tab').forEach(b=>{
+    b.classList.toggle('active', b.dataset.key===tabKey);
+  });
+
+  const chatWrap = document.getElementById('chat-wrap');
+  const adminPanel = document.getElementById('admin-panel');
+
+  if(tabKey==='admin'){
+    chatWrap.style.display = 'none';
+    adminPanel.classList.add('show');
+    document.getElementById('left-panel').style.display = 'none';
+    document.getElementById('sb-ctx').textContent = 'ACMS · 成员管理';
+    renderSteps([]);
+    loadPresets();
+    return;
+  }
+
+  adminPanel.classList.remove('show');
+  chatWrap.style.display = '';
+  document.getElementById('left-panel').style.display = '';
+
+  if(tabKey==='global'){
+    document.getElementById('sb-ctx').textContent = 'ACMS · 全局视图';
+    renderSteps([]);
+    showDashboard();
+    document.getElementById('chat-title').textContent = '驾驶舱 · 全局视图';
+    document.getElementById('chat-sub').textContent = '询问项目进展、优先级，或请 AI 绘制分布图';
+    document.getElementById('chat-messages').innerHTML = '';
+    document.getElementById('input-actions').innerHTML = '';
+    document.getElementById('msg-input').placeholder = '问我项目概况，或说"画一个问题分布饼图"…';
+  } else if(tabKey==='report'){
+    document.getElementById('sb-ctx').textContent = 'ACMS · 问题提报';
+    renderSteps([]);
+    // Hide left panel — report doesn't need issue list
+    document.getElementById('left-panel').style.display = 'none';
+    document.getElementById('dashboard').className = '';
+    document.getElementById('issue-panel').className = '';
+    document.getElementById('chat-title').textContent = '提报新问题';
+    document.getElementById('chat-sub').textContent = '描述问题现象，AI 将自动整理 JIRA 字段';
+    document.getElementById('chat-messages').innerHTML = '';
+    document.getElementById('input-actions').innerHTML = '';
+    document.getElementById('report-draft').innerHTML = '';
+    startReportSession();
+  } else {
+    document.getElementById('sb-ctx').textContent = 'ACMS · '+tabKey;
+    renderSteps([]);
+    showIssueList(tabKey);
+    document.getElementById('chat-title').textContent = '选择左侧 issue';
+    document.getElementById('chat-sub').textContent = '';
+    document.getElementById('chat-messages').innerHTML = '';
+    document.getElementById('input-actions').innerHTML = '';
+    // Restore last issue viewed in this tab
+    const savedKey = _tabLastIssue[tabKey];
+    if(savedKey) setTimeout(()=> loadIssue(savedKey), 150);
+  }
+}
+
+// ── admin panel ───────────────────────────────────────────
+const ROLE_OPTIONS = ['admin','pm','dev','verify','readonly'];
+
+async function syncFromJira(){
+  const btn = document.getElementById('sync-btn');
+  btn.disabled = true; btn.textContent = '⟳ 同步中…';
+  try{
+    const res = await apiFetch('/issues/sync', {method:'POST'});
+    if(!res.ok) throw new Error((await res.json()).detail || '失败');
+    const d = await res.json();
+    btn.textContent = `✓ 同步完成 (新增${d.created} 更新${d.updated})`;
+    // 刷新当前 tab
+    if(curTab && curTab !== 'admin') switchTab(curTab);
+  } catch(e){
+    btn.textContent = '⟳ 同步JIRA';
+    alert('同步失败：' + e.message);
+  }
+  setTimeout(()=>{ btn.textContent='⟳ 同步JIRA'; btn.disabled=false; }, 3000);
+}
+
+async function loadPresets(){
+  const wrap = document.getElementById('ap-table-wrap');
+  wrap.innerHTML = '<div class="ap-empty">加载中…</div>';
+  try{
+    const res = await apiFetch('/admin/presets');
+    if(!res.ok) throw new Error('failed');
+    const presets = await res.json();
+    renderPresetsTable(presets);
+  } catch(e){
+    wrap.innerHTML = '<div class="ap-empty" style="color:var(--danger)">加载失败</div>';
+  }
+}
+
+function renderPresetsTable(presets){
+  const wrap = document.getElementById('ap-table-wrap');
+  if(!presets.length){
+    wrap.innerHTML = '<div class="ap-empty">暂无预登记。添加后，对应飞书用户登录时将自动分配角色。</div>';
+    return;
+  }
+  wrap.innerHTML = `
+    <table class="ap-table">
+      <thead><tr>
+        <th>飞书名字</th><th>角色</th><th>备注</th><th style="width:80px">操作</th>
+      </tr></thead>
+      <tbody>
+        ${presets.map(p=>`
+          <tr id="ap-row-${p.id}">
+            <td>${esc(p.feishu_name)}</td>
+            <td>
+              <select class="ap-edit-select" data-id="${p.id}" onchange="updatePresetRole(${p.id},this.value)">
+                ${ROLE_OPTIONS.map(r=>`<option value="${r}"${r===p.role?' selected':''}>${ROLE_LABEL[r]||r}</option>`).join('')}
+              </select>
+            </td>
+            <td style="color:var(--t3)">${esc(p.note||'')}</td>
+            <td><button class="ap-btn danger" onclick="deletePreset(${p.id})" style="padding:4px 10px;font-size:12px">删除</button></td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+async function addPreset(){
+  const name = document.getElementById('ap-name').value.trim();
+  const role = document.getElementById('ap-role').value;
+  const note = document.getElementById('ap-note').value.trim();
+  if(!name){ alert('请填写飞书名字'); return; }
+  try{
+    const res = await apiFetch('/admin/presets', {
+      method:'POST', body:JSON.stringify({feishu_name:name, role, note:note||null})
+    });
+    if(!res.ok){ const e=await res.json(); throw new Error(e.detail||'失败'); }
+    document.getElementById('ap-name').value = '';
+    document.getElementById('ap-note').value = '';
+    loadPresets();
+  } catch(e){ alert('添加失败：'+e.message); }
+}
+
+async function updatePresetRole(id, role){
+  try{
+    const res = await apiFetch('/admin/presets/'+id, {
+      method:'PUT', body:JSON.stringify({role})
+    });
+    if(!res.ok) throw new Error('failed');
+  } catch(e){ alert('更新失败'); loadPresets(); }
+}
+
+async function deletePreset(id){
+  if(!confirm('确认删除该预登记？删除后该用户下次登录将保持当前角色，不再自动同步。')) return;
+  try{
+    const res = await apiFetch('/admin/presets/'+id, {method:'DELETE'});
+    if(!res.ok) throw new Error('failed');
+    const row = document.getElementById('ap-row-'+id);
+    if(row) row.remove();
+    // if table is now empty, reload to show empty state
+    const tbody = document.querySelector('.ap-table tbody');
+    if(tbody && !tbody.children.length) loadPresets();
+  } catch(e){ alert('删除失败'); }
+}
+
+// ── dashboard ────────────────────────────────────────────
+async function showDashboard(){
+  const dash = document.getElementById('dashboard');
+  const panel = document.getElementById('issue-panel');
+  dash.className = 'show';
+  panel.className = '';
+  dash.innerHTML = '<div style="padding:20px;color:var(--t3);font-size:12px;">加载中…</div>';
+  try{
+    const res = await apiFetch('/issues');
+    const issues = await res.json();
+    renderDashboard(issues);
+    // Auto-load first issue so chat is immediately available in 驾驶舱
+    if(issues.length > 0 && !curIssueKey) await loadIssue(issues[0].jira_key, true);
+  } catch(e){ dash.innerHTML = '<div style="padding:20px;color:var(--danger);font-size:12px;">加载失败</div>'; }
+}
+
+async function filterFromDashboard(statusFilter){
+  // Hide dashboard, show issue list (same pattern as other tabs), then auto-load first issue
+  document.getElementById('dashboard').className = '';
+  const panel = document.getElementById('issue-panel');
+  panel.className = 'show';
+  document.getElementById('issue-list').innerHTML = '<div style="padding:20px;color:var(--t3);font-size:12px;">加载中…</div>';
+  try{
+    const url = (statusFilter==='all'||!statusFilter) ? '/issues' : `/issues?status=${encodeURIComponent(statusFilter)}`;
+    const res = await apiFetch(url);
+    const issues = await res.json();
+    renderIssueList(issues, statusFilter);
+  } catch(e){ document.getElementById('issue-list').innerHTML = '<div style="padding:20px;color:var(--danger);font-size:12px;">加载失败</div>'; }
+}
+
+function renderDashboard(issues){
+  const counts = {总计:0,'问题分析中':0,'问题解决中':0,'效果验证':0,'问题关闭':0};
+  issues.forEach(i=>{
+    counts['总计']++;
+    if(counts[i.status]!==undefined) counts[i.status]++;
+  });
+  const archiveCount = issues.filter(i=>i.root_cause).length;
+  document.getElementById('dashboard').innerHTML = `
+  <div class="dash-sec">
+    <div class="dash-sec-title">故障概况</div>
+    <div class="metric-grid">
+      <div class="mc" onclick="filterFromDashboard('all')">
+        <div class="mc-val primary">${counts['总计']}</div>
+        <div class="mc-label">总 issue 数</div><div class="mc-sub">全部故障类型</div>
+      </div>
+      <div class="mc" onclick="filterFromDashboard('问题分析中')">
+        <div class="mc-val warn">${counts['问题分析中']}</div>
+        <div class="mc-label">问题分析中</div><div class="mc-sub">等待确认分析</div>
+      </div>
+      <div class="mc" onclick="filterFromDashboard('问题解决中')">
+        <div class="mc-val primary">${counts['问题解决中']}</div>
+        <div class="mc-label">问题解决中</div><div class="mc-sub">研发处理中</div>
+      </div>
+      <div class="mc" onclick="filterFromDashboard('效果验证')">
+        <div class="mc-val ok">${counts['效果验证']}</div>
+        <div class="mc-label">效果验证</div><div class="mc-sub">等待验证</div>
+      </div>
+      <div class="mc" onclick="filterFromDashboard('问题关闭')">
+        <div class="mc-val ok">${counts['问题关闭']}</div>
+        <div class="mc-label">已关闭</div><div class="mc-sub">已归档</div>
+      </div>
+      <div class="mc" onclick="filterFromDashboard('all')">
+        <div class="mc-val ${archiveCount>0?'ok':'warn'}">${archiveCount}</div>
+        <div class="mc-label">根因已归档</div><div class="mc-sub">含根因分析记录</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── issue list ───────────────────────────────────────────
+const STAGE_CLS = {'问题分析中':'s1','问题解决中':'s2','效果验证':'s3','问题关闭':'s4'};
+
+async function showIssueList(statusFilter){
+  document.getElementById('dashboard').className = '';
+  const panel = document.getElementById('issue-panel');
+  panel.className = 'show';
+  document.getElementById('issue-list').innerHTML = '<div style="padding:20px;color:var(--t3);font-size:12px;">加载中…</div>';
+  try{
+    const url = statusFilter==='all'?'/issues':`/issues?status=${encodeURIComponent(statusFilter)}`;
+    const res = await apiFetch(url);
+    const issues = await res.json();
+    renderIssueList(issues, statusFilter);
+  } catch(e){ document.getElementById('issue-list').innerHTML = '<div style="padding:20px;color:var(--danger);font-size:12px;">加载失败</div>'; }
+}
+
+function renderIssueList(issues, label){
+  document.getElementById('ip-count').textContent = issues.length;
+  if(!issues.length){
+    document.getElementById('issue-list').innerHTML = '<div style="padding:20px;color:var(--t3);font-size:12px;">暂无 issue</div>';
+    return;
+  }
+  document.getElementById('issue-list').innerHTML = issues.map((it,i)=>`
+    <div class="issue-item${i===0?' active':''}" data-key="${esc(it.jira_key)}"
+         onclick="selectIssueItem(this,'${esc(it.jira_key)}')">
+      <div class="ii-top">
+        <span class="ii-id">${esc(it.jira_key)}</span>
+        <span class="ii-tag ${STAGE_CLS[it.status]||'s4'}">${esc(it.status)}</span>
+      </div>
+      <div class="ii-title">${esc(it.title)}</div>
+      <div class="ii-meta">${relTime(it.updated_at)}</div>
+    </div>`).join('');
+  if(issues.length>0) selectIssueItem(document.querySelector('.issue-item'), issues[0].jira_key);
+}
+
+function selectIssueItem(el, key){
+  document.querySelectorAll('.issue-item').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  loadIssue(key, curTab === 'global');
+}
+
+// ── issue detail ─────────────────────────────────────────
+const STEPS_FOR_STATUS = {
+  '问题分析中':[{t:'问题分析中',s:'active'},{t:'问题解决中',s:''},{t:'效果验证',s:''},{t:'问题关闭',s:''}],
+  '问题解决中':[{t:'问题分析中',s:'done'},{t:'问题解决中',s:'active'},{t:'效果验证',s:''},{t:'问题关闭',s:''}],
+  '效果验证':  [{t:'问题分析中',s:'done'},{t:'问题解决中',s:'done'},{t:'效果验证',s:'active'},{t:'问题关闭',s:''}],
+  '问题关闭':  [{t:'问题分析中',s:'done'},{t:'问题解决中',s:'done'},{t:'效果验证',s:'done'},{t:'问题关闭',s:'active'}],
+};
+
+function renderSteps(steps){
+  const el = document.getElementById('sb-steps');
+  if(!steps||!steps.length){el.innerHTML='';return;}
+  el.innerHTML = steps.map((s,i)=>
+    (i>0?'<span class="step-arr"> → </span>':'')+
+    `<span class="step${s.s?' '+s.s:''}">${esc(s.t)}</span>`
+  ).join('');
+}
+
+async function loadIssue(key, skipHistory = false){
+  curIssueKey = key;
+  localStorage.setItem('lastIssueKey', key);  // persist across refresh
+  document.getElementById('chat-title').textContent = key+' 加载中…';
+  document.getElementById('chat-sub').textContent = '';
+  document.getElementById('chat-messages').innerHTML = '';
+  try{
+    const fetches = [apiFetch('/issues/'+key)];
+    if(!skipHistory) fetches.push(apiFetch('/issues/'+key+'/conversation'));
+    const results = await Promise.all(fetches);
+    curIssueData = await results[0].json();
+    const convMd = skipHistory ? '' : ((await results[1].json()).raw_markdown || '');
+    renderIssueChat(curIssueData, convMd);
+  } catch(e){
+    document.getElementById('chat-title').textContent = key;
+    document.getElementById('chat-messages').innerHTML = '<div style="padding:20px;color:var(--danger)">加载失败</div>';
+  }
+}
+
+function renderIssueChat(issue, convMd){
+  document.getElementById('chat-title').textContent = issue.jira_key+' · '+issue.title;
+  document.getElementById('chat-sub').textContent = issue.status;
+  renderSteps(STEPS_FOR_STATUS[issue.status]||[]);
+
+  const box = document.getElementById('chat-messages');
+  box.innerHTML = '';
+  const convHasDelta = convMd && (convMd.includes('boringbot') || convMd.includes('△ DELTA'));
+
+  // AI analysis card (if available)
+  if(issue.root_cause){
+    const jf = issue.jira_fields_pending||{};
+    const jiraRows = [
+      ['完成时间', jf.customfield_10907],
+      ['修复版本', jf.customfield_12507],
+      ['问题类别', jf.customfield_13103],
+      ['Bug责任人', jf.customfield_17801_suggest],
+    ].filter(([,v])=>v && v!=='待确认').map(([k,v])=>
+      `<div class="s-row"><div class="s-lbl">${esc(k)}</div><div class="s-val" style="color:var(--t2)">${esc(v)}</div></div>`
+    ).join('');
+    box.innerHTML += `
+      <div class="mw ai"><div class="m-icon">△</div><div class="m-card">
+        <div class="m-sender">boringbot · 根因初步推断</div>
+        <div id="analysis-card" class="s-card">
+          <div class="s-row"><div class="s-lbl">根因</div><div class="s-val" id="ac-root-cause">${esc(issue.root_cause)}</div></div>
+          <div class="s-row"><div class="s-lbl">修复方案</div><div class="s-val ok" id="ac-fix-solution">${esc(issue.fix_solution||'待确认')}</div></div>
+          ${issue.fix_code_location?`<div class="s-row"><div class="s-lbl">代码位置</div><div class="s-val code">${esc(issue.fix_code_location)}</div></div>`:''}
+          ${issue.impact_scope?`<div class="s-row"><div class="s-lbl">影响范围</div><div class="s-val">${esc(issue.impact_scope)}</div></div>`:''}
+          ${jiraRows?`<details style="margin-top:6px;"><summary style="font-size:11px;color:var(--t3);cursor:pointer;list-style:none;">▸ JIRA 建议字段</summary>${jiraRows}</details>`:''}
+        </div>
+        <div class="m-time" style="margin-top:6px;font-size:11px;color:var(--t3)">如需调整，直接在下方输入框告知 boringbot</div>
+      </div></div>`;
+  } else if(issue.status==='问题分析中'){
+    box.innerHTML += `
+      <div class="mw ai"><div class="m-icon">△</div><div class="m-card">
+        <div class="m-sender">boringbot</div>
+        <div class="m-text" style="color:var(--t3)">⚙️ AI 正在分析 ${esc(issue.jira_key)} 的根因，请稍候…</div>
+      </div></div>`;
+    // 轮询直到 root_cause 出现
+    _startPolling(issue.jira_key, async ()=>{
+      const r = await apiFetch('/issues/'+issue.jira_key);
+      const d = await r.json();
+      if(d.root_cause){ _stopPolling(); loadIssue(issue.jira_key); }
+    });
+  } else if(issue.status==='问题解决中' && !convHasDelta){
+    box.innerHTML += `
+      <div class="mw ai"><div class="m-icon">△</div><div class="m-card">
+        <div class="m-sender">boringbot</div>
+        <div class="m-text" style="color:var(--t3)">⚙️ AI 正在生成修复任务简报，请稍候…</div>
+      </div></div>`;
+    _startPolling(issue.jira_key, async ()=>{
+      const r = await apiFetch('/issues/'+issue.jira_key+'/conversation');
+      const d = await r.json();
+      if(d.raw_markdown && (d.raw_markdown.includes('boringbot') || d.raw_markdown.includes('△ DELTA'))){ _stopPolling(); loadIssue(issue.jira_key); }
+    });
+  } else if(issue.status==='效果验证' && !convHasDelta){
+    box.innerHTML += `
+      <div class="mw ai"><div class="m-icon">△</div><div class="m-card">
+        <div class="m-sender">boringbot</div>
+        <div class="m-text" style="color:var(--t3)">⚙️ AI 正在生成验证检查清单，请稍候…</div>
+      </div></div>`;
+    _startPolling(issue.jira_key, async ()=>{
+      const r = await apiFetch('/issues/'+issue.jira_key+'/conversation');
+      const d = await r.json();
+      if(d.raw_markdown && (d.raw_markdown.includes('boringbot') || d.raw_markdown.includes('△ DELTA'))){ _stopPolling(); loadIssue(issue.jira_key); }
+    });
+  }
+
+  // Render conversation history
+  if(convMd) renderConvMd(convMd, box);
+
+  box.scrollTop = box.scrollHeight;
+
+  // Input actions by stage + role
+  updateInputActions(issue.status);
+}
+
+function renderConvMd(raw, box){
+  // Split on --- separators (frontmatter boundaries + message boundaries)
+  const blocks = raw.split(/\n---+\n/).filter(b=>b.trim());
+  let curStage = null;
+
+  blocks.forEach(block=>{
+    const trimmed = block.trim();
+    const lines = trimmed.split('\n');
+
+    // Frontmatter block: detect stage transition
+    const stageMatch = trimmed.match(/^stage:\s*(.+)$/m);
+    if(stageMatch || (lines[0]==='---' && trimmed.includes('issue:'))){
+      if(stageMatch){
+        const stage = stageMatch[1].trim();
+        if(stage !== curStage && stage !== '问题分析中'){
+          curStage = stage;
+          box.innerHTML += `<div class="stage-divider">${esc(stage)}</div>`;
+        } else if(!curStage){
+          curStage = stage;
+        }
+      }
+      return;  // skip frontmatter
+    }
+
+    // Message block: must match **Speaker** `time`
+    const header = lines[0];
+    const match = header.match(/^\*\*(.+?)\*\*\s+`(.+?)`$/);
+    if(!match) return;
+    const speaker = match[1].trim();
+    const timeStr = match[2].trim();
+    const content = lines.slice(2).join('\n').trim();
+    if(!content) return;
+
+    const isAI = speaker==='boringbot' || speaker==='△ DELTA';
+    const displayName = isAI ? 'boringbot' : speaker;
+
+    // Filter workflow trigger notifications (redundant with analysis card)
+    if(isAI && (
+      content.startsWith('根因初步推断已完成') ||
+      content.startsWith('根因分析完成')
+    )) return;
+
+    if(isAI){
+      box.innerHTML += `
+        <div class="mw ai"><div class="m-icon">△</div><div class="m-card">
+          <div class="m-sender">${esc(displayName)}</div>
+          <div class="m-text">${md(content)}</div>
+          <div class="m-time">${esc(timeStr)}</div>
+        </div></div>`;
+    } else {
+      // Filter system markers like [确认了根因分析] / [验证结论] → show as inline note
+      if(content.startsWith('[') && content.includes(']')){
+        box.innerHTML += `<div class="stage-divider" style="font-style:italic">${esc(content.split('\n')[0])}</div>`;
+        return;
+      }
+      box.innerHTML += `
+        <div class="mw user">
+          <div class="m-bubble"><div class="m-text">${md(content)}</div></div>
+          <div class="m-icon">${esc(speaker.slice(0,1))}</div>
+        </div>`;
+    }
+  });
+}
+
+function updateInputActions(status){
+  const ia = document.getElementById('input-actions');
+  const input = document.getElementById('msg-input');
+  if(status==='问题分析中'){
+    input.placeholder = '确认方案，或告诉我修改方向…';
+    let btns = '<button class="ia-btn" onclick="quickSend(\'根因是什么？\')">根因是什么？</button><button class="ia-btn" onclick="quickSend(\'修改修复方案\')">修改修复方案</button>';
+    if(curIssueData && curIssueData.root_cause){
+      btns += `<button class="ia-btn ia-confirm" onclick="confirmAnalysis('${esc(curIssueData.jira_key)}')">✅ 确认分析并推进</button>`;
+    }
+    ia.innerHTML = btns;
+  } else if(status==='问题解决中'){
+    input.placeholder = '告诉我代码改了哪些位置…';
+    const key = curIssueData ? esc(curIssueData.jira_key) : esc(curIssueKey||'');
+    const file = curIssueData?.fix_code_location || '';
+    const vsParams = new URLSearchParams({key});
+    if(file) vsParams.set('file', file);
+    const vsLink = `vscode://autocharge.acms-cowork/open?${vsParams}`;
+    ia.innerHTML = `<button class="ia-btn" onclick="quickSend('代码已提交，请记录变更')">记录代码变更</button><a class="ia-btn ia-vscode" href="${vsLink}" title="在 VS Code 中打开插件并跳转代码位置">🔗 VS Code 打开</a><button class="ia-btn ia-warn" onclick="rollbackIssue('${key}')">↩ 重新分析</button>`;
+  } else if(status==='效果验证'){
+    input.placeholder = '告诉我压测结果…';
+    const key = curIssueData ? esc(curIssueData.jira_key) : esc(curIssueKey||'');
+    ia.innerHTML = `<button class="ia-btn" onclick="quickSend('验证通过')">验证通过</button><button class="ia-btn" onclick="quickSend('需要补充说明')">补充说明</button><button class="ia-btn ia-confirm" onclick="confirmVerify('${key}','压测通过，未复现')">✅ 压测通过</button><button class="ia-btn ia-warn" onclick="confirmVerify('${key}','验证不通过，问题复现')">❌ 问题复现</button>`;
+  } else {
+    input.placeholder = '发送消息…';
+    ia.innerHTML = '';
+  }
+}
+
+// ── chat ─────────────────────────────────────────────────
+function quickSend(text){
+  document.getElementById('msg-input').value = text;
+  handleSend();
+}
+
+async function handleSend(){
+  if(curReportSession){ sendReportMessage(); return; }
+  if(curTab === 'global'){ sendGlobalMessage(); return; }
+  if(!curIssueKey){
+    appendAiMessage('请先在左侧选择一个 issue，或点击驾驶舱指标卡进入对应问题列表。');
+    return;
+  }
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if(!text||sendLocked) return;
+
+  sendLocked = true;
+  const btn = document.getElementById('send-btn');
+  btn.disabled = true;
+  input.value = '';
+
+  const box = document.getElementById('chat-messages');
+  // Show user message
+  box.innerHTML += `<div class="mw user"><div class="m-bubble"><div class="m-text">${md(text)}</div></div><div class="m-icon">${esc((me?.feishu_name||'我').slice(0,1))}</div></div>`;
+  // Loading indicator
+  const loadId = 'load-'+Date.now();
+  box.innerHTML += `<div id="${loadId}" class="mw ai"><div class="m-icon">△</div><div class="m-card"><div class="m-sender">boringbot</div><div class="m-text" style="color:var(--t3)">⚙️ 处理中…</div></div></div>`;
+  box.scrollTop = box.scrollHeight;
+
+  const sentKey = curIssueKey;  // capture in case user switches issue
+  try{
+    const res = await apiFetch('/chat/'+sentKey, {
+      method:'POST', body:JSON.stringify({text})
+    });
+    const data = await res.json();
+    setAgentStatus(true);
+    const loadEl = document.getElementById(loadId);
+    if(loadEl) loadEl.outerHTML = `
+      <div class="mw ai"><div class="m-icon">△</div><div class="m-card">
+        <div class="m-sender">boringbot</div>
+        <div class="m-text">${md(data.text)}</div>
+        <div class="m-time">${relTime(data.timestamp)}</div>
+      </div></div>`;
+    renderCharts();
+    // In analysis stage: re-fetch issue to reflect any plan updates the AI made
+    if(curIssueData && curIssueData.status==='问题分析中' && curIssueKey===sentKey){
+      setTimeout(async ()=>{
+        try{
+          const r = await apiFetch('/issues/'+sentKey);
+          if(!r.ok) return;
+          const fresh = await r.json();
+          curIssueData = fresh;
+          // Update analysis card in-place (no DOM wipe)
+          const rcEl = document.getElementById('ac-root-cause');
+          const fsEl = document.getElementById('ac-fix-solution');
+          if(rcEl) rcEl.textContent = fresh.root_cause || '待确认';
+          if(fsEl) fsEl.textContent = fresh.fix_solution || '待确认';
+          // Refresh confirm button (it reads from curIssueData)
+          updateInputActions(fresh.status);
+        } catch(e){}
+      }, 400);
+    }
+  } catch(e){
+    setAgentStatus(false);
+    const loadEl = document.getElementById(loadId);
+    if(loadEl) loadEl.outerHTML = `<div class="mw ai"><div class="m-icon">△</div><div class="m-card"><div class="m-sender">boringbot</div><div class="m-text" style="color:var(--danger)">请求失败，请重试</div></div></div>`;
+  }
+  box.scrollTop = box.scrollHeight;
+  sendLocked = false;
+  btn.disabled = false;
+  input.focus();
+}
+
+async function sendGlobalMessage(){
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if(!text||sendLocked) return;
+
+  sendLocked = true;
+  const btn = document.getElementById('send-btn');
+  btn.disabled = true;
+  input.value = '';
+
+  const box = document.getElementById('chat-messages');
+  box.innerHTML += `<div class="mw user"><div class="m-bubble"><div class="m-text">${md(text)}</div></div><div class="m-icon">${esc((me?.feishu_name||'我').slice(0,1))}</div></div>`;
+  const loadId = 'load-'+Date.now();
+  box.innerHTML += `<div id="${loadId}" class="mw ai"><div class="m-icon">△</div><div class="m-card"><div class="m-sender">boringbot</div><div class="m-text" style="color:var(--t3)">⚙️ 分析中…</div></div></div>`;
+  box.scrollTop = box.scrollHeight;
+
+  try{
+    const res = await apiFetch('/chat/global', {method:'POST', body:JSON.stringify({text})});
+    const data = await res.json();
+    const loadEl = document.getElementById(loadId);
+    if(loadEl) loadEl.outerHTML = `
+      <div class="mw ai"><div class="m-icon">△</div><div class="m-card">
+        <div class="m-sender">boringbot</div>
+        <div class="m-text">${md(data.text)}</div>
+        <div class="m-time">${relTime(data.timestamp)}</div>
+      </div></div>`;
+    renderCharts();
+  } catch(e){
+    const loadEl = document.getElementById(loadId);
+    if(loadEl) loadEl.outerHTML = `<div class="mw ai"><div class="m-icon">△</div><div class="m-card"><div class="m-sender">boringbot</div><div class="m-text" style="color:var(--danger)">请求失败，请重试</div></div></div>`;
+  }
+  box.scrollTop = box.scrollHeight;
+  sendLocked = false;
+  btn.disabled = false;
+  input.focus();
+}
+
+// ── confirm actions ───────────────────────────────────────
+async function confirmAnalysis(key){
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = '⚙️ 处理中…';
+  try{
+    const res = await apiFetch('/issues/'+key+'/confirm-analysis', {method:'POST', body:JSON.stringify({})});
+    if(!res.ok){ const e=await res.json(); throw new Error(e.detail||'失败'); }
+    const data = await res.json();
+    btn.className = 'act-btn'; btn.textContent = '✅ 已确认，JIRA 流转成功';
+    appendAiMessage('分析确认成功！JIRA 状态已流转到「'+data.next_status+'」。AI 正在生成修复简报，请稍候…');
+    if(curIssueData) curIssueData.status = data.next_status;
+    document.getElementById('chat-sub').textContent = data.next_status;
+    // 刷新左侧列表 + 1秒后重载 issue（给后台 AI 触发时间）
+    showIssueList(curTab);
+    setTimeout(()=> loadIssue(key), 1000);
+  } catch(e){
+    btn.disabled = false; btn.textContent = '✅ 确认，写回 JIRA 并推进';
+    appendAiMessage('操作失败：'+e.message);
+  }
+}
+
+async function confirmVerify(key, result){
+  const btns = document.querySelectorAll('.ia-confirm, .ia-warn');
+  btns.forEach(b=>b.disabled=true);
+  const isPass = !result.includes('不通过') && !result.includes('复现') && !result.includes('失败');
+  appendAiMessage(isPass ? '⚙️ 正在生成关闭报告并写回 JIRA…' : '⚙️ 验证不通过，正在回退到问题分析中…');
+  try{
+    const res = await apiFetch('/issues/'+key+'/confirm-verify', {method:'POST', body:JSON.stringify({result, comment:''})});
+    if(!res.ok){ const e=await res.json(); throw new Error(e.detail||'失败'); }
+    const data = await res.json();
+    if(data.action==='rollback'){
+      appendAiMessage('验证不通过，已回退至「问题分析中」，AI 将重新分析。');
+      await loadIssue(key);
+    } else {
+      appendAiMessage('验证完成！问题已关闭。\n\n---\n\n'+data.report);
+      showIssueList(curTab);
+    }
+  } catch(e){
+    btns.forEach(b=>b.disabled=false);
+    appendAiMessage('操作失败：'+e.message);
+  }
+}
+
+async function rollbackIssue(key){
+  if(!key){ appendAiMessage('无法识别 issue，请刷新后重试'); return; }
+  if(!confirm('确认回退到「问题分析中」？AI 将重新分析根因。')) return;
+  appendAiMessage('⚙️ 正在回退至问题分析中…');
+  try{
+    const res = await apiFetch('/issues/'+key+'/rollback', {method:'POST'});
+    if(!res.ok){ const e=await res.json(); throw new Error(e.detail||'失败'); }
+    appendAiMessage('已回退至「问题分析中」，AI 将重新分析。');
+    await loadIssue(key);
+  } catch(e){
+    appendAiMessage('操作失败：'+e.message);
+  }
+}
+
+// ── 问题提报 ──────────────────────────────────────────────
+
+async function startReportSession(){
+  curReportSession = null;
+  document.getElementById('msg-input').placeholder = '描述问题现象和发生时间…';
+  document.getElementById('input-actions').innerHTML = '';
+  try{
+    const res = await apiFetch('/report/session', {method:'POST'});
+    if(!res.ok) throw new Error('创建会话失败');
+    const data = await res.json();
+    curReportSession = data.session_id;
+    // Show welcome message
+    const box = document.getElementById('chat-messages');
+    box.innerHTML = '';
+    document.getElementById('report-draft').innerHTML = '';
+    appendAiMessage(
+      '你好！请描述你发现的问题，包括：\n\n' +
+      '1. **发生时间**（尽量精确到小时）\n' +
+      '2. **问题现象**（看到了什么异常）\n' +
+      '3. **发生位置**（车位编号、车型等）\n\n' +
+      'AI 会帮你整理 JIRA 提报字段，整理好后点击「确认提报」。'
+    );
+  } catch(e){
+    appendAiMessage('❌ 初始化提报会话失败：'+e.message);
+  }
+}
+
+async function sendReportMessage(){
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if(!text || !curReportSession || sendLocked) return;
+  sendLocked = true;
+  input.value = '';
+
+  const box = document.getElementById('chat-messages');
+  box.innerHTML += `<div class="mw user"><div class="m-bubble"><div class="m-text">${md(text)}</div></div><div class="m-icon">${esc((me?.feishu_name||'我').slice(0,1))}</div></div>`;
+  const loadId = 'rload-'+Date.now();
+  box.innerHTML += `<div id="${loadId}" class="mw ai"><div class="m-icon">△</div><div class="m-card"><div class="m-sender">boringbot</div><div class="m-text" style="color:var(--t3)">⚙️ 整理中…</div></div></div>`;
+  box.scrollTop = box.scrollHeight;
+
+  try{
+    const res = await apiFetch('/report/'+curReportSession+'/chat', {
+      method:'POST', body:JSON.stringify({text})
+    });
+    if(!res.ok){ const e=await res.json(); throw new Error(e.detail||'失败'); }
+    const data = await res.json();
+    setAgentStatus(true);
+    const loadEl = document.getElementById(loadId);
+    if(loadEl) loadEl.outerHTML = `<div class="mw ai"><div class="m-icon">△</div><div class="m-card"><div class="m-sender">boringbot</div><div class="m-text">${md(data.text)}</div></div></div>`;
+    box.scrollTop = box.scrollHeight;
+    if(data.draft) renderReportDraft(data.draft);
+  } catch(e){
+    setAgentStatus(false);
+    const loadEl = document.getElementById(loadId);
+    if(loadEl) loadEl.outerHTML = `<div class="mw ai"><div class="m-icon">△</div><div class="m-card"><div class="m-sender">boringbot</div><div class="m-text" style="color:var(--danger)">请求失败，请重试</div></div></div>`;
+  } finally{
+    sendLocked = false;
+  }
+}
+
+function renderReportDraft(draft){
+  const el = document.getElementById('report-draft');
+  if(!draft) { el.innerHTML = ''; return; }
+  const row = (label, val) => val
+    ? `<div class="rd-row"><div class="rd-label">${esc(label)}</div><div class="rd-val">${esc(val)}</div></div>`
+    : '';
+  const hasDraft = draft.draft_title || draft.draft_description;
+  if(!hasDraft){ el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="rd-card">
+      <div class="rd-title">▸ 草稿预览（AI 整理中，可继续补充）</div>
+      <div class="rd-grid">
+        ${row('标题', draft.draft_title)}
+        ${row('模块', draft.draft_component)}
+        ${row('严重级别', draft.draft_severity)}
+        ${row('故障时间', draft.draft_time_range)}
+        ${draft.draft_description ? `<div class="rd-row rd-full">${row('描述', draft.draft_description)}</div>` : ''}
+        ${draft.draft_steps ? `<div class="rd-row rd-full">${row('复现步骤', draft.draft_steps)}</div>` : ''}
+      </div>
+      <div class="rd-actions">
+        <button class="rd-confirm" onclick="confirmReport()">✅ 确认提报</button>
+        <button class="rd-cancel" onclick="cancelReport()">取消</button>
+      </div>
+    </div>`;
+}
+
+async function confirmReport(){
+  if(!curReportSession) return;
+  const btn = document.querySelector('.rd-confirm');
+  if(btn) btn.disabled = true;
+  appendAiMessage('⚙️ 正在创建 JIRA issue…');
+  try{
+    const res = await apiFetch('/report/'+curReportSession+'/confirm', {method:'POST'});
+    if(!res.ok){ const e=await res.json(); throw new Error(e.detail||'失败'); }
+    const data = await res.json();
+    appendAiMessage(`✅ 提报成功！已创建 **${data.jira_key}**，正在跳转到问题分析…`);
+    curReportSession = null;
+    document.getElementById('report-draft').innerHTML = '';
+    // Navigate to the new issue
+    setTimeout(async ()=>{
+      // Switch to analysis tab and load the new issue
+      switchTab('问题分析中');
+      setTimeout(()=> loadIssue(data.jira_key), 400);
+    }, 1200);
+  } catch(e){
+    if(btn) btn.disabled = false;
+    appendAiMessage('提报失败：'+e.message);
+  }
+}
+
+async function cancelReport(){
+  if(!curReportSession) return;
+  try{ await apiFetch('/report/'+curReportSession, {method:'DELETE'}); } catch(e){}
+  curReportSession = null;
+  document.getElementById('report-draft').innerHTML = '';
+  document.getElementById('chat-messages').innerHTML = '';
+  appendAiMessage('已取消本次提报。如需重新提报，请重新点击「问题提报」tab。');
+}
+
+function appendAiMessage(text){
+  const box = document.getElementById('chat-messages');
+  box.innerHTML += `<div class="mw ai"><div class="m-icon">△</div><div class="m-card">
+    <div class="m-sender">boringbot</div>
+    <div class="m-text">${md(text)}</div>
+    <div class="m-time">刚刚</div>
+  </div></div>`;
+  box.scrollTop = box.scrollHeight;
+}
+
+// ── keyboard ──────────────────────────────────────────────
+document.getElementById('msg-input').addEventListener('keydown', e=>{
+  if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); handleSend(); }
+});
+
+// ── start ──────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>

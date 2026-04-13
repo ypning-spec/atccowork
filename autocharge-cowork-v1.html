@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>AutoCharge Cowork</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0D0F14;--bg2:#0F1219;--bg3:#141820;--bg4:#1A2035;
+  --border:#1E2330;--primary:#4F8EF7;--pglow:rgba(79,142,247,0.18);
+  --success:#00D68F;--warn:#FFB547;--danger:#FF5C5C;
+  --t1:#E8EAED;--t2:#9AA0AC;--t3:#5A6070;--r:10px;
+}
+body{height:100vh;overflow:hidden;background:var(--bg);color:var(--t1);
+  font-family:-apple-system,"PingFang SC","Helvetica Neue",sans-serif;
+  font-size:14px;display:flex;flex-direction:column;}
+
+/* ── topbar ─────────────────────────────── */
+#topbar{height:52px;background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex-shrink:0;}
+.tb-left{display:flex;align-items:center;gap:10px;}
+.tb-logo{width:28px;height:28px;background:var(--primary);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;}
+.tb-name{font-size:15px;font-weight:600;}
+.tb-proj{font-size:12px;color:var(--t3);padding:3px 8px;border:1px solid var(--border);border-radius:5px;}
+.tb-roles{display:flex;gap:3px;}
+.role-tab{background:transparent;border:none;color:var(--t2);padding:5px 12px;
+  border-radius:6px;font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.role-tab:hover{color:var(--t1);background:rgba(255,255,255,.05);}
+.role-tab.active{background:var(--primary);color:#fff;}
+.tb-right{display:flex;align-items:center;gap:10px;}
+.tb-badge{display:flex;align-items:center;gap:6px;background:rgba(0,214,143,.1);
+  border:1px solid rgba(0,214,143,.2);border-radius:20px;padding:4px 12px;
+  font-size:12px;color:var(--success);white-space:nowrap;}
+.store-dot{width:6px;height:6px;border-radius:50%;background:var(--success);
+  animation:pulse 2s infinite;display:inline-block;margin-right:4px;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+/* ── statusbar ──────────────────────────── */
+#statusbar{height:40px;background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 20px;gap:16px;flex-shrink:0;}
+.sb-ctx{font-size:12px;color:var(--t2);white-space:nowrap;flex-shrink:0;}
+.sb-div{color:var(--border);}
+.sb-steps{display:flex;align-items:center;gap:4px;}
+.step{font-size:12px;color:var(--t3);white-space:nowrap;}
+.step.done{color:var(--success);}
+.step.done::before{content:'✓ ';}
+.step.active{color:var(--primary);font-weight:600;}
+.step-arr{color:var(--t3);font-size:11px;}
+
+/* ── layout ─────────────────────────────── */
+#app-body{flex:1;display:flex;overflow:hidden;}
+#left-panel{width:268px;background:var(--bg2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;}
+
+/* ── dashboard ──────────────────────────── */
+#dashboard{display:none;flex-direction:column;overflow-y:auto;flex:1;padding:14px 12px;}
+#dashboard.show{display:flex;}
+.dash-sec{margin-bottom:18px;}
+.dash-sec-title{font-size:10px;color:var(--t3);text-transform:uppercase;
+  letter-spacing:.8px;font-weight:500;margin-bottom:10px;}
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.mc{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 11px;}
+.mc-val{font-size:22px;font-weight:700;line-height:1.2;}
+.mc-val.warn{color:var(--warn);}
+.mc-val.ok{color:var(--success);}
+.mc-val.primary{color:var(--primary);}
+.mc-label{font-size:11px;color:var(--t2);margin-top:3px;}
+.mc-sub{font-size:10px;color:var(--t3);margin-top:2px;}
+.pattern-list{display:flex;flex-direction:column;gap:6px;}
+.pattern-item{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 11px;}
+.pi-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.pi-label{font-size:12px;color:var(--t1);font-weight:500;}
+.pi-tag{font-size:10px;padding:2px 7px;border-radius:4px;}
+.pi-tag.warn{background:rgba(255,181,71,.15);color:var(--warn);}
+.pi-tag.primary{background:rgba(79,142,247,.15);color:var(--primary);}
+.pi-ids{font-size:11px;color:var(--t3);}
+.health-row{display:flex;align-items:center;justify-content:space-between;
+  padding:7px 0;border-bottom:1px solid var(--border);}
+.health-row:last-child{border-bottom:none;}
+.health-label{font-size:12px;color:var(--t2);}
+.health-right{display:flex;align-items:center;gap:8px;}
+.hbar{width:56px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.hbar-fill{height:100%;border-radius:2px;}
+.health-val{font-size:12px;font-weight:600;}
+
+/* ── issue panel ────────────────────────── */
+#issue-panel{display:none;flex-direction:column;flex:1;overflow:hidden;}
+#issue-panel.show{display:flex;}
+.ip-header{display:flex;align-items:center;justify-content:space-between;padding:14px 14px 10px;}
+.ip-label{font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.8px;font-weight:500;}
+.ip-count{background:var(--primary);color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;font-weight:600;}
+#issue-list{overflow-y:auto;flex:1;}
+.issue-item{padding:11px 14px;cursor:pointer;border-left:3px solid transparent;transition:all .12s;}
+.issue-item:hover{background:rgba(255,255,255,.03);}
+.issue-item.active{border-left-color:var(--primary);background:rgba(79,142,247,.08);}
+.ii-top{display:flex;align-items:center;gap:7px;margin-bottom:4px;}
+.ii-id{font-size:11px;color:var(--primary);font-weight:600;}
+.ii-tag{font-size:10px;padding:2px 6px;border-radius:4px;}
+.ii-tag.s1{background:rgba(255,181,71,.15);color:var(--warn);}
+.ii-tag.s2{background:rgba(79,142,247,.15);color:var(--primary);}
+.ii-tag.s3{background:rgba(0,214,143,.15);color:var(--success);}
+.ii-tag.s4{background:rgba(90,96,112,.2);color:var(--t2);}
+.ii-title{font-size:13px;color:var(--t1);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ii-meta{font-size:11px;color:var(--t3);}
+
+/* ── chat ───────────────────────────────── */
+#chat-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+#chat-header{height:48px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0;}
+.ch-left{display:flex;align-items:center;gap:10px;}
+#chat-title{font-size:14px;font-weight:500;}
+#chat-sub{font-size:12px;color:var(--t3);}
+.ch-store{font-size:11px;color:var(--t3);font-family:'SF Mono',monospace;}
+#chat-messages{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:18px;}
+.mw{display:flex;max-width:720px;margin:0 auto;width:100%;}
+.mw.ai{align-items:flex-start;gap:10px;}
+.mw.user{justify-content:flex-end;gap:10px;}
+.m-icon{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;
+  justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:2px;}
+.ai .m-icon{background:var(--primary);color:#fff;}
+.user .m-icon{background:#2A3045;color:var(--t2);}
+.m-card{background:var(--bg3);border:1px solid var(--border);border-left:3px solid var(--primary);
+  border-radius:0 var(--r) var(--r) var(--r);padding:14px 16px;max-width:92%;}
+.m-bubble{background:var(--primary);color:#fff;
+  border-radius:var(--r) 0 var(--r) var(--r);padding:10px 14px;max-width:72%;}
+.m-sender{font-size:11px;color:var(--primary);font-weight:600;margin-bottom:8px;}
+.m-text{font-size:13px;line-height:1.75;color:var(--t1);}
+.m-bubble .m-text{color:#fff;}
+.m-time{font-size:11px;color:var(--t3);margin-top:8px;}
+
+/* ── inline components ──────────────────── */
+.s-card{background:var(--bg4);border:1px solid var(--border);border-radius:8px;padding:10px 13px;margin:10px 0;}
+.s-card-title{font-size:10px;color:var(--t3);font-weight:500;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;}
+.s-row{display:flex;align-items:baseline;gap:8px;padding:4px 0;border-bottom:1px solid var(--border);}
+.s-row:last-child{border-bottom:none;}
+.s-lbl{font-size:11px;color:var(--t3);flex-shrink:0;width:62px;}
+.s-val{font-size:12px;color:var(--t1);flex:1;line-height:1.5;}
+.s-val.ok{color:var(--success);}
+.s-val.dim{color:var(--t3);}
+.s-val.code{font-family:'SF Mono',monospace;color:#61AFEF;}
+
+.similar-flag{background:rgba(79,142,247,.07);border:1px solid rgba(79,142,247,.18);
+  border-radius:7px;padding:8px 11px;margin:8px 0;display:flex;gap:8px;}
+.sf-icon{flex-shrink:0;margin-top:1px;}
+.sf-body{font-size:12px;color:var(--t2);line-height:1.6;}
+.sf-ids{font-size:11px;color:var(--primary);font-weight:600;margin-top:3px;}
+
+.code-wrap{margin:10px 0;}
+.code-file{font-size:11px;color:var(--t3);font-family:'SF Mono',monospace;
+  background:var(--bg4);border:1px solid var(--border);border-bottom:none;
+  border-radius:6px 6px 0 0;padding:5px 12px;display:flex;align-items:center;gap:7px;}
+.cf-dot{width:7px;height:7px;border-radius:50%;background:var(--primary);}
+.code-block{background:#090B0F;border:1px solid var(--border);border-radius:0 0 6px 6px;
+  padding:10px 14px;font-family:'SF Mono','Fira Code',monospace;font-size:12px;
+  line-height:1.7;overflow-x:auto;white-space:pre;}
+.c-ln{color:var(--t3);user-select:none;display:inline-block;width:26px;text-align:right;margin-right:12px;}
+.c-kw{color:#C678DD;}
+.c-fn{color:#61AFEF;}
+.c-num{color:#D19A66;}
+.c-cmt{color:#5C6370;font-style:italic;}
+.c-add{background:rgba(62,122,58,.25);color:#98C379;display:block;}
+.c-del{background:rgba(122,58,58,.25);color:#E06C75;display:block;}
+
+.jira-writeback{background:rgba(0,214,143,.06);border:1px solid rgba(0,214,143,.2);
+  border-radius:7px;padding:8px 11px;margin:8px 0;display:flex;gap:8px;align-items:flex-start;}
+.jw-icon{flex-shrink:0;font-size:13px;}
+.jw-body{font-size:12px;color:var(--t2);line-height:1.5;}
+.jw-body strong{color:var(--success);}
+
+.check-list{display:flex;flex-direction:column;gap:4px;margin:8px 0;}
+.check-item{font-size:12px;line-height:1.6;display:flex;align-items:baseline;gap:7px;}
+.ck-ok{color:var(--success);}
+.ck-warn{color:var(--warn);}
+.ck-no{color:var(--t3);}
+
+.action-row{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap;}
+.act-btn{background:var(--bg4);border:1px solid var(--border);color:var(--t1);
+  border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;
+  transition:all .12s;font-family:inherit;}
+.act-btn:hover{border-color:var(--primary);color:var(--primary);}
+.act-btn.primary{background:var(--primary);color:#fff;border-color:var(--primary);}
+.act-btn.primary:hover{opacity:.85;}
+
+/* ── input ──────────────────────────────── */
+#chat-input-area{border-top:1px solid var(--border);padding:14px 24px;flex-shrink:0;}
+.ii{max-width:720px;margin:0 auto;}
+.ia{display:flex;gap:7px;margin-bottom:10px;flex-wrap:wrap;}
+.ia-btn{background:transparent;border:1px solid var(--border);color:var(--t2);
+  border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;transition:all .12s;}
+.ia-btn:hover{border-color:var(--primary);color:var(--primary);}
+.ir{display:flex;gap:10px;}
+#msg-input{flex:1;background:var(--bg3);border:1px solid var(--border);
+  border-radius:8px;color:var(--t1);font-size:14px;padding:10px 14px;
+  outline:none;font-family:inherit;transition:border-color .15s;}
+#msg-input:focus{border-color:var(--primary);}
+#msg-input::placeholder{color:var(--t3);}
+#send-btn{background:var(--primary);color:#fff;border:none;border-radius:8px;
+  padding:10px 20px;font-size:14px;cursor:pointer;font-family:inherit;
+  box-shadow:0 0 14px var(--pglow);transition:opacity .15s;white-space:nowrap;}
+#send-btn:hover{opacity:.88;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+</head>
+<body>
+<div id="topbar">
+  <div class="tb-left">
+    <div class="tb-logo">△</div>
+    <span class="tb-name">AutoCharge Cowork</span>
+    <span class="tb-proj">ACMS</span>
+  </div>
+  <div class="tb-roles">
+    <button class="role-tab active" data-role="global">驾驶舱</button>
+    <button class="role-tab" data-role="hanyi">韩沂 · 研发</button>
+    <button class="role-tab" data-role="huangfei">黄飞 · 验证</button>
+  </div>
+  <div class="tb-right">
+    <span style="font-size:11px;color:var(--t3)"><span class="store-dot"></span>对话归档中</span>
+    <div class="tb-badge"><span style="font-size:9px">●</span>&nbsp;AI 运行中 · 4个任务</div>
+  </div>
+</div>
+<div id="statusbar">
+  <span class="sb-ctx" id="sb-ctx">ACMS · 故障管理全局视图</span>
+  <span class="sb-div">|</span>
+  <div class="sb-steps" id="sb-steps"></div>
+</div>
+<div id="app-body">
+  <div id="left-panel">
+    <div id="dashboard">
+      <div class="dash-sec">
+        <div class="dash-sec-title">故障概况</div>
+        <div class="metric-grid">
+          <div class="mc"><div class="mc-val">52</div><div class="mc-label">总 issue 数</div><div class="mc-sub">全部故障类型</div></div>
+          <div class="mc"><div class="mc-val warn">38</div><div class="mc-label">根因未归档</div><div class="mc-sub">⚠ 知识流失</div></div>
+          <div class="mc"><div class="mc-val ok">14</div><div class="mc-label">本月已关闭</div><div class="mc-sub">节奏正常</div></div>
+          <div class="mc"><div class="mc-val primary">3</div><div class="mc-label">共性模式</div><div class="mc-sub">AI 检测</div></div>
+        </div>
+      </div>
+      <div class="dash-sec">
+        <div class="dash-sec-title">共性模式</div>
+        <div class="pattern-list">
+          <div class="pattern-item">
+            <div class="pi-top"><span class="pi-label">强光过曝系列</span><span class="pi-tag warn">可能共根因</span></div>
+            <div class="pi-ids">ACMS-9 · ACMS-40 · ACMS-45</div>
+          </div>
+          <div class="pattern-item">
+            <div class="pi-top"><span class="pi-label">插枪失败系列</span><span class="pi-tag warn">可能共根因</span></div>
+            <div class="pi-ids">ACMS-50 · ACMS-51 · ACMS-52</div>
+          </div>
+          <div class="pattern-item">
+            <div class="pi-top"><span class="pi-label">碰撞保护误触发</span><span class="pi-tag primary">待关联分析</span></div>
+            <div class="pi-ids">ACMS-33 · ACMS-42</div>
+          </div>
+        </div>
+      </div>
+      <div class="dash-sec">
+        <div class="dash-sec-title">知识库健康</div>
+        <div class="health-row"><span class="health-label">描述为空</span><span class="health-val" style="color:var(--danger)">41 个</span></div>
+        <div class="health-row"><span class="health-label">根因已归档</span>
+          <div class="health-right"><div class="hbar"><div class="hbar-fill" style="width:27%;background:var(--danger)"></div></div>
+          <span class="health-val" style="color:var(--danger)">27%</span></div></div>
+        <div class="health-row"><span class="health-label">AI 已归档决策</span><span class="health-val warn">0</span></div>
+        <div class="health-row"><span class="health-label">待验证 issue</span><span class="health-val warn">6 个</span></div>
+      </div>
+    </div>
+    <div id="issue-panel">
+      <div class="ip-header"><span class="ip-label">待处理</span><span class="ip-count" id="ip-count">0</span></div>
+      <div id="issue-list"></div>
+    </div>
+  </div>
+
+  <div id="chat-wrap">
+    <div id="chat-header">
+      <div class="ch-left">
+        <span id="chat-title">驾驶舱 · 全局视图</span>
+        <span id="chat-sub">问我团队进展、风险、共性模式</span>
+      </div>
+      <div class="ch-store" id="store-path" style="font-size:10px;color:var(--t3)"></div>
+    </div>
+    <div id="chat-messages"></div>
+    <div id="chat-input-area">
+      <div class="ii">
+        <div class="ia" id="input-actions"></div>
+        <div class="ir"><input id="msg-input" type="text"/><button id="send-btn">发送</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function nl2br(s){return esc(s).replace(/\n/g,'<br>');}
+
+// ════════════════════════════════════════════
+//  对话场景定义（4个 JIRA 工作流节点）
+// ════════════════════════════════════════════
+const CONVS = {
+
+  // ── 驾驶舱 ──────────────────────────────
+  'global': {
+    steps: [],
+    storePath: '',
+    html: `
+    <div class="mw ai"><div class="m-icon">△</div><div class="m-card">
+      <div class="m-sender">△ DELTA</div>
+      <div class="m-text">今日 ACMS 概况：</div>
+      <div class="similar-flag">
+        <div class="sf-icon">🔗</div>
+        <div class="sf-body">检测到共性模式：强光过曝系列（ACMS-9、40、45）可能共享根因，3个 issue 各自独立解决，经验未复用。建议合并分析。
+          <div class="sf-ids">ACMS-9 · ACMS-40 · ACMS-45</div></div>
+      </div>
+      <div class="m-text">⚠ ACMS-45「户外强光视觉失效」滞留 5天，待研发分析<br>⚠ ACMS-52 修复方案待韩沂确认<br>📊 知识库根因归档率 27%，38个 issue 根因为空</div>
+      <div class="action-row">
+        <button class="act-btn">📊 全量报告</button>
+        <button class="act-btn">🔗 展开共性分析</button>
+        <button class="act-btn">⚠ 滞留列表</button>
+      </div>
+      <div class="m-time">刚刚</div>
+    </div></div>`
+  },
+
+  // ── 节点 1：问题分析中（AI 给出根因 + 修复方案，韩沂确认） ──
+  'ACMS-52-analysis': {
+    steps:[{t:'问题分析中',s:'active'},{t:'问题解决中',s:''},{t:'效果验证',s:''},{t:'问题关闭',s:''}],
+    storePath: 'data/conversations/ACMS-52/2026-04-07_analysis.md',
+    html: `
+    <div class="mw ai"><div class="m-icon">△</div><div class="m-card">
+      <div class="m-sender">△ DELTA</div>
+      <div class="m-text">韩沂，ACMS-52「mega 车端插枪失败」已进入问题分析中，我完成了根因分析。</div>
+      <div class="similar-flag">
+        <div class="sf-icon">🔗</div>
+        <div class="sf-body">参考 ACMS-50（2025-12-14，已关闭）：插枪失败，根因同为到位门限值过严，调整后验证通过。
+          <div class="sf-ids">ACMS-50 · ACMS-51</div></div>
+      </div>
+      <div class="m-text">当前代码（GitLab · main）：</div>
+      <div class="code-wrap">
+        <div class="code-file"><div class="cf-dot"></div>arm_control/threshold.cpp · main</div>
+        <div class="code-block"><span class="c-ln">45</span><span class="c-kw">struct</span> <span class="c-fn">InsertionConfig</span> {
+<span class="c-ln">46</span>  <span class="c-kw">int</span> threshold_in_place = <span class="c-num">90</span>;  <span class="c-cmt">// 插枪到位门限值</span>
+<span class="c-ln">47</span>  <span class="c-kw">int</span> retry_max          = <span class="c-num">3</span>;
+<span class="c-ln">48</span>};</div>
+      </div>
+      <div class="s-card">
+        <div class="s-card-title">根因分析 + 修复方案</div>
+        <div class="s-row"><div class="s-lbl">根因</div><div class="s-val">threshold_in_place = 90 设置过严，mega 车型插枪行程略长，偶发判定失败</div></div>
+        <div class="s-row"><div class="s-lbl">修复方案</div><div class="s-val ok">threshold_in_place 90 → 70（参考 ACMS-50，历史有效）</div></div>
+        <div class="s-row"><div class="s-lbl">排除方案</div><div class="s-val dim">增加 retry_max — 治标不治本，掩盖问题</div></div>
+        <div class="s-row"><div class="s-lbl">影响范围</div><div class="s-val">仅 mega 车型，i8 / X11 不受影响</div></div>
+      </div>
+      <div class="jira-writeback">
+        <div class="jw-icon">📝</div>
+        <div class="jw-body">确认后，我将把以上根因分析和修复方案<strong>回写到 JIRA ACMS-52 评论</strong>，并把 issue 状态流转到「问题解决中」。</div>
+      </div>
+      <div class="action-row">
+        <button class="act-btn primary">✅ 确认，写回 JIRA 并推进</button>
+        <button class="act-btn">✏️ 修改根因描述</button>
+        <button class="act-btn">💬 门限值改为其他</button>
+      </div>
+      <div class="m-time">10分钟前</div>
+    </div></div>`
+  },
+
+  // ── 节点 2：问题解决中（AI 给出 diff + MR，韩沂确认提交） ──
+  'ACMS-51-solving': {
+    steps:[{t:'问题分析中',s:'done'},{t:'问题解决中',s:'active'},{t:'效果验证',s:''},{t:'问题关闭',s:''}],
+    storePath: 'data/conversations/ACMS-51/2026-04-08_solving.md',
+    html: `
+    <div class="mw ai"><div class="m-icon">△</div><div class="m-card">
+      <div class="m-sender">△ DELTA</div>
+      <div class="m-text">韩沂，ACMS-51「i8 插枪位置偏移」根因已确认（末端夹爪标定偏差），进入问题解决中。代码修改已完成：</div>
+      <div class="code-wrap">
+        <div class="code-file"><div class="cf-dot"></div>calibration/arm_calib.yaml · fix/ACMS-51-calib · diff</div>
+        <div class="code-block"><span class="c-del"><span class="c-ln"> 4</span>-  offset_x: 2.5    <span class="c-cmt"># mm，出厂默认</span></span>
+<span class="c-add"><span class="c-ln"> 4</span>+  offset_x: 1.2    <span class="c-cmt"># mm，i8 实测校正（ACMS-51）</span></span>
+<span class="c-del"><span class="c-ln"> 5</span>-  offset_y: 0.0</span>
+<span class="c-add"><span class="c-ln"> 5</span>+  offset_y: -0.8   <span class="c-cmt"># mm，i8 实测校正（ACMS-51）</span></span>
+<span class="c-ln"> 6</span>  offset_z: 0.0
+<span class="c-ln"> 7</span>  vehicle_type: i8</div>
+      </div>
+      <div class="s-card">
+        <div class="s-card-title">变更记录</div>
+        <div class="s-row"><div class="s-lbl">改动文件</div><div class="s-val code">calibration/arm_calib.yaml</div></div>
+        <div class="s-row"><div class="s-lbl">分支</div><div class="s-val code">fix/ACMS-51-calib</div></div>
+        <div class="s-row"><div class="s-lbl">提交人</div><div class="s-val">韩沂</div></div>
+      </div>
+      <div class="jira-writeback">
+        <div class="jw-icon">📝</div>
+        <div class="jw-body">确认后，我将把代码变更记录<strong>写回 JIRA ACMS-51 评论</strong>，并将 issue 流转到「效果验证」，通知黄飞安排压测。</div>
+      </div>
+      <div class="action-row">
+        <button class="act-btn primary">✅ 代码已改好，通知黄飞验证</button>
+        <button class="act-btn">✏️ 修改参数值</button>
+        <button class="act-btn">💬 还需要改其他文件</button>
+      </div>
+      <div class="m-time">30分钟前</div>
+    </div></div>`
+  },
+
+  // ── 节点 3：效果验证（AI 给黄飞修复摘要，等待验证结果） ──
+  'ACMS-52-verify': {
+    steps:[{t:'问题分析中',s:'done'},{t:'问题解决中',s:'done'},{t:'效果验证',s:'active'},{t:'问题关闭',s:''}],
+    storePath: 'data/conversations/ACMS-52/2026-04-08_verify.md',
+    html: `
+    <div class="mw ai"><div class="m-icon">△</div><div class="m-card">
+      <div class="m-sender">△ DELTA</div>
+      <div class="m-text">黄飞，ACMS-52「mega 车端插枪失败」修复完成，请安排效果验证。</div>
+      <div class="s-card">
+        <div class="s-card-title">修复摘要（来自问题分析归档）</div>
+        <div class="s-row"><div class="s-lbl">根因</div><div class="s-val">threshold_in_place = 90 过严，mega 车型偶发判定失败</div></div>
+        <div class="s-row"><div class="s-lbl">修复</div><div class="s-val ok">threshold_in_place 90 → 70</div></div>
+        <div class="s-row"><div class="s-lbl">代码位置</div><div class="s-val code">arm_control/threshold.cpp : 46</div></div>
+        <div class="s-row"><div class="s-lbl">MR</div><div class="s-val code">!134 · fix/ACMS-52-threshold（已合入）</div></div>
+        <div class="s-row"><div class="s-lbl">版本</div><div class="s-val">V1.0.9</div></div>
+      </div>
+      <div class="m-text">建议压测覆盖：</div>
+      <div class="check-list">
+        <div class="check-item"><span class="ck-no">○</span> mega 车型，≥20次插枪，正常光照</div>
+        <div class="check-item"><span class="ck-no">○</span> mega 车型，≥5次插枪，弱光场景</div>
+        <div class="check-item"><span class="ck-no">○</span> i8 车型，≥10次，确认无回归</div>
+      </div>
+      <div class="m-text">验证完成后告诉我结果，我来生成问题关闭报告并写回 JIRA。</div>
+      <div class="action-row">
+        <button class="act-btn primary">✅ 压测通过，未复现</button>
+        <button class="act-btn">❌ 问题复现，描述现象</button>
+        <button class="act-btn">⏳ 安排中，暂不处理</button>
+      </div>
+      <div class="m-time">刚刚</div>
+    </div></div>`
+  },
+
+  // ── 节点 4：问题关闭（AI 生成关闭报告，展示归档内容） ──
+  'ACMS-50-closed': {
+    steps:[{t:'问题分析中',s:'done'},{t:'问题解决中',s:'done'},{t:'效果验证',s:'done'},{t:'问题关闭',s:'active'}],
+    storePath: 'data/conversations/ACMS-50/2026-04-06_closed.md',
+    html: `
+    <div class="mw ai"><div class="m-icon">△</div><div class="m-card">
+      <div class="m-sender">△ DELTA</div>
+      <div class="m-text">黄飞，ACMS-50「mega 插枪失败（批次）」验证通过，正在生成关闭报告：</div>
+      <div class="s-card">
+        <div class="s-card-title">问题关闭报告</div>
+        <div class="s-row"><div class="s-lbl">问题</div><div class="s-val">mega 车型批量插枪失败，失败率约 15%</div></div>
+        <div class="s-row"><div class="s-lbl">根因</div><div class="s-val">threshold_in_place = 90 设置过严，mega 车型插枪行程略长</div></div>
+        <div class="s-row"><div class="s-lbl">修复</div><div class="s-val ok">threshold_in_place 90 → 70</div></div>
+        <div class="s-row"><div class="s-lbl">排除方案</div><div class="s-val dim">增加 retry_max（治标不治本）</div></div>
+        <div class="s-row"><div class="s-lbl">验证</div><div class="s-val ok">黄飞压测 25次未复现，mega / i8 均通过</div></div>
+        <div class="s-row"><div class="s-lbl">代码位置</div><div class="s-val code">arm_control/threshold.cpp : 46</div></div>
+        <div class="s-row"><div class="s-lbl">版本</div><div class="s-val">V1.0.8</div></div>
+      </div>
+      <div class="jira-writeback">
+        <div class="jw-icon">📝</div>
+        <div class="jw-body">以上报告将<strong>写回 JIRA ACMS-50 评论</strong>，并关闭 issue。同时归档到知识库，供后续相似问题参考（已被 ACMS-52 引用）。</div>
+      </div>
+      <div class="action-row">
+        <button class="act-btn primary">✅ 确认，写回并关闭</button>
+        <button class="act-btn">✏️ 补充说明</button>
+      </div>
+      <div class="m-time">刚刚</div>
+    </div></div>`
+  }
+};
+
+// ════════════════════════════════════════════
+//  角色定义
+// ════════════════════════════════════════════
+const ROLES = {
+  global:{
+    sbCtx:'ACMS · 故障管理全局视图',
+    chatTitle:'驾驶舱 · 全局视图', chatSub:'问我团队进展、风险、共性模式',
+    inputHint:'例：ACMS-52 当前状态？ / 本周有什么风险？',
+    actions:['📊 全量报告','🔗 共性模式','⚠ 滞留列表'],
+    convKey:'global', issues:null
+  },
+  hanyi:{
+    sbCtx:'ACMS · 待处理',
+    chatTitle:'', chatSub:'',
+    inputHint:'确认方案，或告诉我修改方向…',
+    actions:['🔀 查看 GitLab','📎 关联 issue','📋 历史归档'],
+    convKey:'ACMS-52-analysis',
+    issues:[
+      {id:'ACMS-52', title:'mega 车端插枪失败',     desc:'根因已分析，等你确认方案', time:'今天',    stageCls:'s1', stageLabel:'问题分析中', convKey:'ACMS-52-analysis'},
+      {id:'ACMS-51', title:'i8 插枪位置偏移',       desc:'代码已改，等你确认 MR',   time:'1小时前', stageCls:'s2', stageLabel:'问题解决中', convKey:'ACMS-51-solving'},
+      {id:'ACMS-45', title:'户外强光场景视觉失效',   desc:'分析中，等供应商回复',     time:'5天前',   stageCls:'s1', stageLabel:'问题分析中', convKey:'ACMS-52-analysis'}
+    ]
+  },
+  huangfei:{
+    sbCtx:'ACMS · 效果验证队列',
+    chatTitle:'', chatSub:'',
+    inputHint:'告诉我压测结果…',
+    actions:['📋 修复详情','🔗 关联 MR','📝 历史验证记录'],
+    convKey:'ACMS-52-verify',
+    issues:[
+      {id:'ACMS-52', title:'mega 车端插枪失败',     desc:'V1.0.9 待压测',         time:'今天',   stageCls:'s3', stageLabel:'效果验证', convKey:'ACMS-52-verify'},
+      {id:'ACMS-51', title:'i8 插枪位置偏移',       desc:'V1.0.8 待安排',         time:'2天前',  stageCls:'s3', stageLabel:'效果验证', convKey:'ACMS-52-verify'},
+      {id:'ACMS-50', title:'mega 插枪失败（批次）', desc:'验证通过，生成关闭报告', time:'昨天',   stageCls:'s4', stageLabel:'问题关闭', convKey:'ACMS-50-closed'}
+    ]
+  }
+};
+
+let curRole = 'global';
+
+function renderSteps(steps){
+  const el = document.getElementById('sb-steps');
+  if(!steps||!steps.length){el.innerHTML='';return;}
+  el.innerHTML = steps.map((s,i)=>{
+    const cls = 'step'+(s.s?' '+s.s:'');
+    return (i>0?'<span class="step-arr"> → </span>':'')+`<span class="${cls}">${esc(s.t)}</span>`;
+  }).join('');
+}
+
+function loadConv(key, titleOverride){
+  const c = CONVS[key]; if(!c) return;
+  renderSteps(c.steps);
+  document.getElementById('store-path').textContent = c.storePath || '';
+  if(titleOverride) document.getElementById('chat-title').textContent = titleOverride;
+  const box = document.getElementById('chat-messages');
+  box.innerHTML = c.html;
+  box.scrollTop = box.scrollHeight;
+}
+
+function renderLeft(role){
+  const d = ROLES[role];
+  const isGlobal = role==='global';
+  document.getElementById('dashboard').className = isGlobal?'show':'';
+  document.getElementById('issue-panel').className = isGlobal?'':'show';
+  if(!isGlobal && d.issues){
+    document.getElementById('ip-count').textContent = d.issues.length;
+    document.getElementById('issue-list').innerHTML = d.issues.map((it,i)=>`
+      <div class="issue-item${i===0?' active':''}"
+           onclick="selectIssue(this,'${esc(it.id)}','${esc(it.title)}','${esc(it.convKey)}')">
+        <div class="ii-top">
+          <span class="ii-id">${esc(it.id)}</span>
+          <span class="ii-tag ${it.stageCls}">${esc(it.stageLabel)}</span>
+        </div>
+        <div class="ii-title">${esc(it.title)}</div>
+        <div class="ii-meta">${esc(it.desc)} · ${esc(it.time)}</div>
+      </div>`).join('');
+  }
+}
+
+function selectIssue(el, id, title, convKey){
+  document.querySelectorAll('.issue-item').forEach(e=>e.classList.remove('active'));
+  el.classList.add('active');
+  loadConv(convKey, id+' · '+title);
+}
+
+function switchRole(role){
+  curRole = role;
+  const d = ROLES[role];
+  document.getElementById('sb-ctx').textContent = d.sbCtx;
+  document.getElementById('chat-title').textContent = d.chatTitle;
+  document.getElementById('chat-sub').textContent = d.chatSub;
+  document.getElementById('msg-input').placeholder = d.inputHint;
+  document.getElementById('input-actions').innerHTML = (d.actions||[]).map(a=>`<button class="ia-btn">${a}</button>`).join('');
+  renderLeft(role);
+  loadConv(d.convKey);
+}
+
+function sendMessage(){
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim(); if(!text) return;
+  const box = document.getElementById('chat-messages');
+  box.innerHTML += `<div class="mw user"><div class="m-bubble"><div class="m-text">${nl2br(text)}</div></div><div class="m-icon">我</div></div>`;
+  input.value = ''; box.scrollTop = box.scrollHeight;
+  setTimeout(()=>{
+    box.innerHTML += `<div class="mw ai"><div class="m-icon">△</div><div class="m-card"><div class="m-sender">△ DELTA</div><div class="m-text">⚙️ 收到，处理中...</div><div class="m-time">刚刚</div></div></div>`;
+    box.scrollTop = box.scrollHeight;
+  }, 800);
+}
+
+document.querySelectorAll('.role-tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.role-tab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); switchRole(btn.dataset.role);
+  });
+});
+document.getElementById('send-btn').addEventListener('click', sendMessage);
+document.getElementById('msg-input').addEventListener('keydown', e=>{if(e.key==='Enter') sendMessage();});
+switchRole('global');
+</script>
+</body>
+</html>

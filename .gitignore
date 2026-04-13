@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Claude Code session data
+.claude/
+
+# Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+backend/.venv/
+
+# Secrets — copy from .env.example and fill in locally
+backend/.env
+
+# Databases (runtime data)
+*.db
+*.sqlite3
+
+# VSCode extension build artifacts
+vscode-extension/*.vsix
+vscode-extension/node_modules/

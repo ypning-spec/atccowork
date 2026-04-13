@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>AutoCharge Cowork · 账号管理</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0D0F14;--bg2:#0F1219;--bg3:#141820;--bg4:#1A2035;
+  --border:#1E2330;--primary:#4F8EF7;--pglow:rgba(79,142,247,0.18);
+  --success:#00D68F;--warn:#FFB547;--danger:#FF5C5C;
+  --feishu:#1456F0;
+  --t1:#E8EAED;--t2:#9AA0AC;--t3:#5A6070;--r:10px;
+}
+body{min-height:100vh;background:var(--bg);color:var(--t1);
+  font-family:-apple-system,"PingFang SC","Helvetica Neue",sans-serif;
+  font-size:14px;}
+
+/* ══════════════════════════════════════════
+   PAGE 1 · 登录页
+══════════════════════════════════════════ */
+#page-login{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 30%, rgba(79,142,247,0.08) 0%, transparent 70%);
+}
+.login-card{
+  width:380px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:16px;padding:40px 36px;text-align:center;
+}
+.login-logo{width:52px;height:52px;background:var(--primary);border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:22px;font-weight:700;margin:0 auto 16px;}
+.login-title{font-size:20px;font-weight:700;margin-bottom:6px;}
+.login-proj{display:inline-flex;align-items:center;gap:6px;
+  background:var(--bg3);border:1px solid var(--border);
+  border-radius:6px;padding:4px 10px;font-size:12px;color:var(--t2);margin-bottom:28px;}
+.login-proj-dot{width:6px;height:6px;border-radius:50%;background:var(--primary);}
+
+.btn-feishu{
+  width:100%;background:var(--feishu);color:#fff;border:none;border-radius:10px;
+  padding:13px 20px;font-size:15px;font-weight:500;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  font-family:inherit;transition:opacity .15s;margin-bottom:16px;
+}
+.btn-feishu:hover{opacity:.88;}
+.feishu-icon{width:20px;height:20px;background:#fff;border-radius:4px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.feishu-icon svg{width:14px;height:14px;}
+
+.login-note{font-size:12px;color:var(--t3);}
+
+/* demo account picker (modal over login) */
+.demo-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);
+  display:flex;align-items:center;justify-content:center;z-index:100;display:none;}
+.demo-overlay.show{display:flex;}
+.demo-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;
+  padding:24px;width:320px;}
+.demo-title{font-size:13px;color:var(--t2);margin-bottom:16px;
+  text-align:center;border-bottom:1px solid var(--border);padding-bottom:12px;}
+.demo-user{display:flex;align-items:center;gap:12px;padding:10px 12px;
+  border-radius:8px;cursor:pointer;transition:background .12s;margin-bottom:4px;}
+.demo-user:hover{background:var(--bg3);}
+.du-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+.du-name{font-size:13px;font-weight:500;}
+.du-role{font-size:11px;margin-top:2px;}
+.role-badge{display:inline-block;padding:1px 7px;border-radius:4px;font-size:11px;font-weight:500;}
+.rb-admin{background:rgba(79,142,247,.15);color:var(--primary);}
+.rb-dev{background:rgba(255,181,71,.15);color:var(--warn);}
+.rb-verify{background:rgba(0,214,143,.15);color:var(--success);}
+.rb-readonly{background:rgba(90,96,112,.2);color:var(--t2);}
+
+/* ══════════════════════════════════════════
+   PAGE 2 · 主应用（登录后）
+   仅展示 topbar + 用户信息变化
+══════════════════════════════════════════ */
+#page-app{display:none;flex-direction:column;}
+#page-app.show{display:flex;}
+
+/* topbar */
+#topbar{height:52px;background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;padding:0 20px;flex-shrink:0;}
+.tb-left{display:flex;align-items:center;gap:10px;}
+.tb-logo{width:28px;height:28px;background:var(--primary);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700;}
+.tb-name{font-size:15px;font-weight:600;}
+.tb-proj{font-size:12px;color:var(--t3);padding:3px 8px;border:1px solid var(--border);border-radius:5px;}
+
+/* nav tabs (admin only) */
+.tb-nav{display:flex;gap:3px;}
+.nav-tab{background:transparent;border:none;color:var(--t2);padding:5px 12px;
+  border-radius:6px;font-size:12px;cursor:pointer;transition:all .15s;white-space:nowrap;}
+.nav-tab:hover{color:var(--t1);background:rgba(255,255,255,.05);}
+.nav-tab.active{background:var(--primary);color:#fff;}
+
+/* user profile in topbar */
+.tb-right{display:flex;align-items:center;gap:12px;}
+.tb-badge{display:flex;align-items:center;gap:6px;background:rgba(0,214,143,.1);
+  border:1px solid rgba(0,214,143,.2);border-radius:20px;padding:4px 12px;
+  font-size:12px;color:var(--success);white-space:nowrap;}
+.store-dot{width:6px;height:6px;border-radius:50%;background:var(--success);
+  animation:pulse 2s infinite;display:inline-block;margin-right:4px;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+.user-chip{display:flex;align-items:center;gap:8px;padding:4px 10px 4px 5px;
+  background:var(--bg3);border:1px solid var(--border);border-radius:20px;
+  cursor:pointer;transition:border-color .12s;}
+.user-chip:hover{border-color:var(--primary);}
+.uc-avatar{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
+.uc-name{font-size:12px;color:var(--t1);}
+
+/* profile dropdown */
+.profile-menu{position:absolute;top:58px;right:20px;
+  background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  padding:8px;min-width:200px;z-index:50;display:none;box-shadow:0 8px 24px rgba(0,0,0,.4);}
+.profile-menu.show{display:block;}
+.pm-header{padding:8px 10px 12px;border-bottom:1px solid var(--border);margin-bottom:6px;}
+.pm-name{font-size:13px;font-weight:600;}
+.pm-sub{font-size:11px;color:var(--t3);margin-top:2px;}
+.pm-item{display:flex;align-items:center;gap:8px;padding:7px 10px;
+  border-radius:6px;cursor:pointer;font-size:13px;color:var(--t2);transition:all .12s;}
+.pm-item:hover{background:var(--bg3);color:var(--t1);}
+.pm-item.danger:hover{background:rgba(255,92,92,.1);color:var(--danger);}
+
+/* ══════════════════════════════════════════
+   PAGE 3 · 用户管理面板
+══════════════════════════════════════════ */
+#page-users{display:none;flex-direction:column;padding:28px 32px;overflow-y:auto;
+  min-height:calc(100vh - 52px);}
+#page-users.show{display:flex;}
+
+.panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;}
+.panel-title{font-size:18px;font-weight:600;}
+.panel-sub{font-size:13px;color:var(--t3);margin-top:4px;}
+.btn-invite{background:var(--feishu);color:#fff;border:none;border-radius:8px;
+  padding:8px 18px;font-size:13px;cursor:pointer;font-family:inherit;
+  display:flex;align-items:center;gap:7px;transition:opacity .15s;}
+.btn-invite:hover{opacity:.88;}
+
+/* stats row */
+.stat-row{display:flex;gap:12px;margin-bottom:24px;}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;
+  padding:12px 16px;flex:1;}
+.stat-val{font-size:20px;font-weight:700;}
+.stat-val.primary{color:var(--primary);}
+.stat-label{font-size:11px;color:var(--t2);margin-top:3px;}
+
+/* user table */
+.user-table{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.ut-head{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 100px;
+  padding:10px 20px;border-bottom:1px solid var(--border);
+  font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;font-weight:500;}
+.ut-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 100px;
+  padding:14px 20px;border-bottom:1px solid var(--border);
+  align-items:center;transition:background .1s;}
+.ut-row:last-child{border-bottom:none;}
+.ut-row:hover{background:rgba(255,255,255,.02);}
+
+.ut-user{display:flex;align-items:center;gap:10px;}
+.ut-avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+.ut-username{font-size:13px;font-weight:500;}
+.ut-feishu{font-size:11px;color:var(--t3);margin-top:1px;}
+
+.ut-role select{background:var(--bg3);border:1px solid var(--border);color:var(--t1);
+  border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;
+  font-family:inherit;outline:none;}
+.ut-role select:focus{border-color:var(--primary);}
+
+.status-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:5px;}
+.status-dot.active{background:var(--success);}
+.status-dot.inactive{background:var(--t3);}
+.ut-status{font-size:12px;color:var(--t2);}
+
+.ut-actions{display:flex;gap:6px;}
+.icon-btn{background:transparent;border:1px solid var(--border);color:var(--t3);
+  border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;transition:all .12s;}
+.icon-btn:hover{border-color:var(--primary);color:var(--primary);}
+.icon-btn.danger:hover{border-color:var(--danger);color:var(--danger);}
+
+/* invite modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);
+  display:none;align-items:center;justify-content:center;z-index:100;}
+.modal-overlay.show{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:12px;
+  padding:24px;width:440px;}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:4px;}
+.modal-sub{font-size:12px;color:var(--t3);margin-bottom:20px;}
+.form-group{margin-bottom:16px;}
+.form-label{font-size:12px;color:var(--t2);margin-bottom:6px;display:block;}
+.form-input{width:100%;background:var(--bg3);border:1px solid var(--border);
+  color:var(--t1);border-radius:8px;padding:9px 12px;font-size:13px;
+  font-family:inherit;outline:none;transition:border-color .15s;}
+.form-input:focus{border-color:var(--primary);}
+.form-select{width:100%;background:var(--bg3);border:1px solid var(--border);
+  color:var(--t1);border-radius:8px;padding:9px 12px;font-size:13px;
+  font-family:inherit;outline:none;cursor:pointer;}
+.form-select:focus{border-color:var(--primary);}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;}
+.btn-cancel{background:transparent;border:1px solid var(--border);color:var(--t2);
+  border-radius:7px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:inherit;}
+.btn-cancel:hover{border-color:var(--t2);color:var(--t1);}
+.btn-primary{background:var(--primary);color:#fff;border:none;
+  border-radius:7px;padding:8px 20px;font-size:13px;cursor:pointer;font-family:inherit;
+  box-shadow:0 0 12px var(--pglow);}
+.btn-primary:hover{opacity:.88;}
+
+/* feishu search result */
+.feishu-result{background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+  padding:10px 12px;display:flex;align-items:center;gap:10px;margin-top:8px;display:none;}
+.feishu-result.show{display:flex;}
+.fr-name{font-size:13px;font-weight:500;}
+.fr-id{font-size:11px;color:var(--t3);}
+
+/* ── permissions legend ── */
+.perm-table{width:100%;border-collapse:collapse;margin-top:24px;}
+.perm-table th{font-size:10px;color:var(--t3);text-transform:uppercase;letter-spacing:.6px;
+  padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);}
+.perm-table td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px;}
+.perm-table tr:last-child td{border-bottom:none;}
+.perm-table td:first-child{color:var(--t1);}
+.perm-table td:not(:first-child){text-align:center;color:var(--t3);}
+.perm-ok{color:var(--success);}
+.perm-no{color:var(--t3);}
+.perm-section{font-size:11px;color:var(--t3);padding:12px 12px 4px;
+  text-transform:uppercase;letter-spacing:.6px;}
+
+.section-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  overflow:hidden;margin-bottom:20px;}
+.section-title{font-size:13px;font-weight:500;padding:14px 20px;
+  border-bottom:1px solid var(--border);color:var(--t2);}
+</style>
+</head>
+<body>
+
+<!-- ══ PAGE 1: 登录页 ══════════════════════ -->
+<div id="page-login">
+  <div class="login-card">
+    <div class="login-logo">△</div>
+    <div class="login-title">AutoCharge Cowork</div>
+    <div style="margin:0 auto 24px;display:flex;justify-content:center;">
+      <span class="login-proj">
+        <span class="login-proj-dot"></span>ACMS · 自动充电场站
+      </span>
+    </div>
+    <button class="btn-feishu" onclick="showDemoPicker()">
+      <div class="feishu-icon">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#1456F0"/>
+          <path d="M8 10l4-4 4 4M8 14l4 4 4-4" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      使用飞书账号登录
+    </button>
+    <div class="login-note">仅限项目团队成员 · 通过飞书授权访问</div>
+  </div>
+</div>
+
+<!-- demo account picker -->
+<div class="demo-overlay" id="demo-overlay">
+  <div class="demo-card">
+    <div class="demo-title">演示模式 · 选择登录身份</div>
+    <div class="demo-user" onclick="login('admin')">
+      <div class="du-avatar" style="background:#1A2A4A;color:var(--primary)">项</div>
+      <div>
+        <div class="du-name">项目负责人</div>
+        <div class="du-role"><span class="role-badge rb-admin">管理员</span></div>
+      </div>
+    </div>
+    <div class="demo-user" onclick="login('hanyi')">
+      <div class="du-avatar" style="background:#2A1F14;color:var(--warn)">韩</div>
+      <div>
+        <div class="du-name">韩沂</div>
+        <div class="du-role"><span class="role-badge rb-dev">研发</span></div>
+      </div>
+    </div>
+    <div class="demo-user" onclick="login('huangfei')">
+      <div class="du-avatar" style="background:#0F2420;color:var(--success)">黄</div>
+      <div>
+        <div class="du-name">黄飞</div>
+        <div class="du-role"><span class="role-badge rb-verify">验证</span></div>
+      </div>
+    </div>
+    <div class="demo-user" onclick="login('readonly')">
+      <div class="du-avatar" style="background:#1A1E28;color:var(--t2)">观</div>
+      <div>
+        <div class="du-name">外部观察者</div>
+        <div class="du-role"><span class="role-badge rb-readonly">只读</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 2: 主应用 topbar ══════════════ -->
+<div id="page-app">
+  <div id="topbar" style="position:relative;">
+    <div class="tb-left">
+      <div class="tb-logo">△</div>
+      <span class="tb-name">AutoCharge Cowork</span>
+      <span class="tb-proj">ACMS</span>
+    </div>
+    <!-- admin nav tabs -->
+    <div class="tb-nav" id="admin-nav" style="display:none;">
+      <button class="nav-tab active" onclick="showView('dashboard')">驾驶舱</button>
+      <button class="nav-tab" onclick="showView('users')">用户管理</button>
+    </div>
+    <!-- non-admin breadcrumb -->
+    <div id="user-ctx" style="font-size:12px;color:var(--t3);display:none;"></div>
+    <div class="tb-right">
+      <span style="font-size:11px;color:var(--t3)"><span class="store-dot"></span>对话归档中</span>
+      <div class="tb-badge"><span style="font-size:9px">●</span>&nbsp;AI 运行中</div>
+      <div class="user-chip" id="user-chip" onclick="toggleMenu()">
+        <div class="uc-avatar" id="uc-avatar"></div>
+        <span class="uc-name" id="uc-name"></span>
+      </div>
+    </div>
+    <!-- profile dropdown -->
+    <div class="profile-menu" id="profile-menu">
+      <div class="pm-header">
+        <div class="pm-name" id="pm-name"></div>
+        <div class="pm-sub" id="pm-role"></div>
+        <div class="pm-sub" id="pm-feishu" style="margin-top:3px;color:var(--feishu);font-size:11px;"></div>
+      </div>
+      <div class="pm-item">⚙️ &nbsp;个人设置</div>
+      <div class="pm-item">🔔 &nbsp;通知偏好</div>
+      <div class="pm-item danger" onclick="logout()">← &nbsp;退出登录</div>
+    </div>
+  </div>
+
+  <!-- app content placeholder (shows role context) -->
+  <div id="app-content" style="padding:32px;color:var(--t2);font-size:13px;line-height:1.8;">
+  </div>
+
+  <!-- ══ PAGE 3: 用户管理面板 ══════════════ -->
+  <div id="page-users">
+    <div class="panel-header">
+      <div>
+        <div class="panel-title">用户管理</div>
+        <div class="panel-sub">管理团队成员的访问权限和角色</div>
+      </div>
+      <button class="btn-invite" onclick="showInvite()">
+        <span style="font-size:16px;">+</span> 从飞书邀请成员
+      </button>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-val primary">4</div><div class="stat-label">活跃成员</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--warn)">1</div><div class="stat-label">研发</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--success)">1</div><div class="stat-label">验证</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--t2)">1</div><div class="stat-label">只读观察者</div></div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-title">团队成员</div>
+      <div class="ut-head">
+        <span>成员</span><span>角色</span><span>飞书状态</span><span>最近活跃</span><span>操作</span>
+      </div>
+
+      <div class="ut-row">
+        <div class="ut-user">
+          <div class="ut-avatar" style="background:#1A2A4A;color:var(--primary)">项</div>
+          <div>
+            <div class="ut-username">项目负责人</div>
+            <div class="ut-feishu">@pm · 飞书已绑定</div>
+          </div>
+        </div>
+        <div class="ut-role">
+          <select>
+            <option value="admin" selected>管理员</option>
+            <option value="dev">研发</option>
+            <option value="verify">验证</option>
+            <option value="readonly">只读</option>
+          </select>
+        </div>
+        <div class="ut-status"><span class="status-dot active"></span>已连接</div>
+        <div style="font-size:12px;color:var(--t3)">刚刚</div>
+        <div class="ut-actions">
+          <button class="icon-btn">编辑</button>
+        </div>
+      </div>
+
+      <div class="ut-row">
+        <div class="ut-user">
+          <div class="ut-avatar" style="background:#2A1F14;color:var(--warn)">韩</div>
+          <div>
+            <div class="ut-username">韩沂</div>
+            <div class="ut-feishu">@hanyi · 飞书已绑定</div>
+          </div>
+        </div>
+        <div class="ut-role">
+          <select>
+            <option value="admin">管理员</option>
+            <option value="dev" selected>研发</option>
+            <option value="verify">验证</option>
+            <option value="readonly">只读</option>
+          </select>
+        </div>
+        <div class="ut-status"><span class="status-dot active"></span>已连接</div>
+        <div style="font-size:12px;color:var(--t3)">10分钟前</div>
+        <div class="ut-actions">
+          <button class="icon-btn">编辑</button>
+          <button class="icon-btn danger">移除</button>
+        </div>
+      </div>
+
+      <div class="ut-row">
+        <div class="ut-user">
+          <div class="ut-avatar" style="background:#0F2420;color:var(--success)">黄</div>
+          <div>
+            <div class="ut-username">黄飞</div>
+            <div class="ut-feishu">@huangfei · 飞书已绑定</div>
+          </div>
+        </div>
+        <div class="ut-role">
+          <select>
+            <option value="admin">管理员</option>
+            <option value="dev">研发</option>
+            <option value="verify" selected>验证</option>
+            <option value="readonly">只读</option>
+          </select>
+        </div>
+        <div class="ut-status"><span class="status-dot active"></span>已连接</div>
+        <div style="font-size:12px;color:var(--t3)">2小时前</div>
+        <div class="ut-actions">
+          <button class="icon-btn">编辑</button>
+          <button class="icon-btn danger">移除</button>
+        </div>
+      </div>
+
+      <div class="ut-row">
+        <div class="ut-user">
+          <div class="ut-avatar" style="background:#1A1E28;color:var(--t2)">观</div>
+          <div>
+            <div class="ut-username">外部观察者</div>
+            <div class="ut-feishu">@observer · 飞书已绑定</div>
+          </div>
+        </div>
+        <div class="ut-role">
+          <select>
+            <option value="admin">管理员</option>
+            <option value="dev">研发</option>
+            <option value="verify">验证</option>
+            <option value="readonly" selected>只读</option>
+          </select>
+        </div>
+        <div class="ut-status"><span class="status-dot inactive"></span>未活跃</div>
+        <div style="font-size:12px;color:var(--t3)">3天前</div>
+        <div class="ut-actions">
+          <button class="icon-btn">编辑</button>
+          <button class="icon-btn danger">移除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 权限矩阵 -->
+    <div class="section-card">
+      <div class="section-title">角色权限矩阵</div>
+      <table class="perm-table">
+        <thead>
+          <tr>
+            <th>权限</th>
+            <th><span class="role-badge rb-admin">管理员</span></th>
+            <th><span class="role-badge rb-dev">研发</span></th>
+            <th><span class="role-badge rb-verify">验证</span></th>
+            <th><span class="role-badge rb-readonly">只读</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="5" class="perm-section">Issue 操作</td></tr>
+          <tr>
+            <td>查看所有 issue</td>
+            <td class="perm-ok">✓</td><td class="perm-ok">✓</td>
+            <td class="perm-ok">✓</td><td class="perm-ok">✓</td>
+          </tr>
+          <tr>
+            <td>确认根因分析（问题分析中）</td>
+            <td class="perm-ok">✓</td><td class="perm-ok">✓</td>
+            <td class="perm-no">—</td><td class="perm-no">—</td>
+          </tr>
+          <tr>
+            <td>确认代码变更（问题解决中）</td>
+            <td class="perm-ok">✓</td><td class="perm-ok">✓</td>
+            <td class="perm-no">—</td><td class="perm-no">—</td>
+          </tr>
+          <tr>
+            <td>提交验证结果（效果验证）</td>
+            <td class="perm-ok">✓</td><td class="perm-no">—</td>
+            <td class="perm-ok">✓</td><td class="perm-no">—</td>
+          </tr>
+          <tr>
+            <td>确认关闭报告</td>
+            <td class="perm-ok">✓</td><td class="perm-no">—</td>
+            <td class="perm-ok">✓</td><td class="perm-no">—</td>
+          </tr>
+          <tr><td colspan="5" class="perm-section">系统管理</td></tr>
+          <tr>
+            <td>查看全局驾驶舱</td>
+            <td class="perm-ok">✓</td><td class="perm-no">—</td>
+            <td class="perm-no">—</td><td class="perm-no">—</td>
+          </tr>
+          <tr>
+            <td>管理用户 / 分配角色</td>
+            <td class="perm-ok">✓</td><td class="perm-no">—</td>
+            <td class="perm-no">—</td><td class="perm-no">—</td>
+          </tr>
+          <tr>
+            <td>查看对话归档</td>
+            <td class="perm-ok">✓</td><td class="perm-ok">✓</td>
+            <td class="perm-ok">✓</td><td class="perm-ok">✓</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 邀请成员 modal -->
+<div class="modal-overlay" id="invite-modal">
+  <div class="modal">
+    <div class="modal-title">从飞书邀请成员</div>
+    <div class="modal-sub">输入飞书用户名或姓名，系统自动关联飞书账号</div>
+    <div class="form-group">
+      <label class="form-label">搜索飞书用户</label>
+      <input class="form-input" type="text" placeholder="输入姓名 / 飞书 ID"
+             oninput="simulateSearch(this.value)"/>
+      <div class="feishu-result" id="feishu-result">
+        <div class="du-avatar" style="width:32px;height:32px;background:#1A1E28;color:var(--t2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">新</div>
+        <div>
+          <div class="fr-name" id="fr-name">—</div>
+          <div class="fr-id" id="fr-id">飞书 ID: —</div>
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">分配角色</label>
+      <select class="form-select">
+        <option value="">请选择角色</option>
+        <option value="admin">管理员 · 全局视图 + 用户管理</option>
+        <option value="dev">研发 · 问题分析 + 问题解决</option>
+        <option value="verify">验证 · 效果验证 + 关闭确认</option>
+        <option value="readonly">只读 · 仅查看，不可操作</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="hideInvite()">取消</button>
+      <button class="btn-primary">发送飞书邀请</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const USERS = {
+  admin:{
+    name:'项目负责人', initial:'项', role:'管理员', roleKey:'admin',
+    color:'#1A2A4A', textColor:'var(--primary)',
+    feishu:'@pm', rbClass:'rb-admin',
+    ctx:'全局视图 · 可管理用户和查看所有 issue'
+  },
+  hanyi:{
+    name:'韩沂', initial:'韩', role:'研发', roleKey:'dev',
+    color:'#2A1F14', textColor:'var(--warn)',
+    feishu:'@hanyi', rbClass:'rb-dev',
+    ctx:'待处理 · 2个 issue 等你确认'
+  },
+  huangfei:{
+    name:'黄飞', initial:'黄', role:'验证', roleKey:'verify',
+    color:'#0F2420', textColor:'var(--success)',
+    feishu:'@huangfei', rbClass:'rb-verify',
+    ctx:'效果验证队列 · 3个 issue 待压测'
+  },
+  readonly:{
+    name:'外部观察者', initial:'观', role:'只读', roleKey:'readonly',
+    color:'#1A1E28', textColor:'var(--t2)',
+    feishu:'@observer', rbClass:'rb-readonly',
+    ctx:'只读模式 · 可查看所有内容，不可操作'
+  }
+};
+
+let curUser = null;
+
+function showDemoPicker(){
+  document.getElementById('demo-overlay').classList.add('show');
+}
+
+function login(userId){
+  curUser = USERS[userId];
+  document.getElementById('demo-overlay').classList.remove('show');
+  document.getElementById('page-login').style.display = 'none';
+  document.getElementById('page-app').classList.add('show');
+
+  // update topbar avatar
+  const av = document.getElementById('uc-avatar');
+  av.textContent = curUser.initial;
+  av.style.background = curUser.color;
+  av.style.color = curUser.textColor;
+  document.getElementById('uc-name').textContent = curUser.name;
+
+  // profile menu
+  document.getElementById('pm-name').textContent = curUser.name;
+  document.getElementById('pm-role').textContent = '角色：' + curUser.role;
+  document.getElementById('pm-feishu').textContent = '飞书：' + curUser.feishu;
+
+  // show/hide admin nav
+  const adminNav = document.getElementById('admin-nav');
+  const userCtx  = document.getElementById('user-ctx');
+  if(userId === 'admin'){
+    adminNav.style.display = 'flex';
+    userCtx.style.display  = 'none';
+    showView('dashboard');
+  } else {
+    adminNav.style.display = 'none';
+    userCtx.style.display  = 'block';
+    userCtx.textContent    = curUser.ctx;
+    showView('role');
+  }
+}
+
+function showView(view){
+  const content   = document.getElementById('app-content');
+  const usersPanel = document.getElementById('page-users');
+
+  // update nav tab state
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  if(view==='dashboard') document.querySelectorAll('.nav-tab')[0]?.classList.add('active');
+  if(view==='users')     document.querySelectorAll('.nav-tab')[1]?.classList.add('active');
+
+  if(view === 'users'){
+    content.style.display = 'none';
+    usersPanel.classList.add('show');
+  } else {
+    usersPanel.classList.remove('show');
+    content.style.display = 'block';
+    if(view === 'dashboard'){
+      content.innerHTML = `
+        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:16px;">驾驶舱 · 全局视图</div>
+        <div style="color:var(--t1);font-size:14px;margin-bottom:8px;">你正在以 <strong style="color:var(--primary)">管理员</strong> 身份查看</div>
+        <div style="color:var(--t2);">完整的驾驶舱内容请参见主应用原型 <code style="color:var(--primary);background:var(--bg3);padding:2px 6px;border-radius:4px;">autocharge-cowork-v1.html</code></div>`;
+    } else {
+      const roleMap = {dev:'研发视图（问题分析中 / 问题解决中）',verify:'验证视图（效果验证）',readonly:'只读视图（所有内容，无操作按钮）'};
+      content.innerHTML = `
+        <div style="font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:16px;">
+          ${curUser?.role || ''} · ${curUser?.ctx || ''}</div>
+        <div style="color:var(--t1);font-size:14px;margin-bottom:8px;">你正在以 <strong style="color:var(--primary)">${curUser?.role||''}</strong> 身份查看</div>
+        <div style="color:var(--t2);">完整的角色视图内容请参见主应用原型 <code style="color:var(--primary);background:var(--bg3);padding:2px 6px;border-radius:4px;">autocharge-cowork-v1.html</code></div>`;
+    }
+  }
+}
+
+function toggleMenu(){
+  document.getElementById('profile-menu').classList.toggle('show');
+}
+document.addEventListener('click', e=>{
+  if(!e.target.closest('#user-chip') && !e.target.closest('#profile-menu')){
+    document.getElementById('profile-menu').classList.remove('show');
+  }
+});
+
+function logout(){
+  document.getElementById('page-app').classList.remove('show');
+  document.getElementById('page-login').style.display = '';
+  document.getElementById('page-users').classList.remove('show');
+  document.getElementById('profile-menu').classList.remove('show');
+  curUser = null;
+}
+
+function showInvite(){
+  document.getElementById('invite-modal').classList.add('show');
+}
+function hideInvite(){
+  document.getElementById('invite-modal').classList.remove('show');
+}
+document.getElementById('invite-modal').addEventListener('click', e=>{
+  if(e.target === document.getElementById('invite-modal')) hideInvite();
+});
+
+function simulateSearch(val){
+  const r = document.getElementById('feishu-result');
+  if(val.length >= 2){
+    r.classList.add('show');
+    document.getElementById('fr-name').textContent = val + ' (模拟飞书用户)';
+    document.getElementById('fr-id').textContent = '飞书 ID: ' + val.toLowerCase().replace(/\s/g,'_');
+  } else {
+    r.classList.remove('show');
+  }
+}
+</script>
+</body>
+</html>
